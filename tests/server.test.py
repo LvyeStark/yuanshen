@@ -12,7 +12,7 @@ class ServerConfigurationTests(unittest.TestCase):
 
         self.assertIn("libx265", command)
         self.assertIn("hvc1", command)
-        self.assertIn("scale=8256:5504:flags=lanczos,format=yuv420p", command)
+        self.assertIn("scale=8256:5504:flags=lanczos,setsar=1,format=yuv420p", command)
         self.assertIn("-f mp4", joined)
         self.assertEqual(command[-1], str(output))
 
@@ -33,6 +33,16 @@ class ServerConfigurationTests(unittest.TestCase):
             server.build_output_file_name(r"C:\Camera\旅拍:夜景.JPG"),
             "旅拍-夜景.mp4",
         )
+        self.assertEqual(
+            server.build_output_file_name("IMG_8256.HEIC", "livephoto"),
+            "IMG_8256-livephoto.zip",
+        )
+
+    def test_live_photo_helper_writes_apple_pairing_metadata(self):
+        helper_source = (server.ROOT / "tools" / "live-photo-pair.swift").read_text()
+        self.assertIn("com.apple.quicktime.content.identifier", helper_source)
+        self.assertIn("com.apple.quicktime.still-image-time", helper_source)
+        self.assertIn('makerApple["17"]', helper_source)
 
     def test_ffmpeg_command_writes_source_metadata_into_mp4(self):
         output = Path("outputs/test.mp4")

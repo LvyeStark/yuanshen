@@ -15,6 +15,7 @@ import sys
 import tempfile
 import threading
 import uuid
+import zipfile
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -55,9 +56,11 @@ def clean_source_name(value: str | None) -> str:
     return clean_name[:180] or "source-media"
 
 
-def build_output_file_name(source_name: str | None) -> str:
+def build_output_file_name(source_name: str | None, export_format: str = "mp4") -> str:
     clean_name = clean_source_name(source_name)
     stem = Path(clean_name).stem.strip(" .") or "source-media"
+    if export_format == "livephoto":
+        return f"{stem[:130]}-livephoto.zip"
     return f"{stem[:140]}.mp4"
 
 
@@ -224,6 +227,36 @@ class ExportError(RuntimeError):
     """Expected export failure that can be shown to the browser."""
 
 
+LIVE_PHOTO_HELPER_LOCK = threading.Lock()
+
+
+def ensure_live_photo_helper() -> Path:
+    helper = SOURCE_TEMP_ROOT / "live-photo-pair"
+    if helper.exists():
+        return helper
+    source = ROOT / "tools" / "live-photo-pair.swift"
+    xcrun = shutil.which("xcrun")
+    if sys.platform != "darwin" or not xcrun:
+        raise ExportError("Live Photo 导出需要 macOS 与 Apple Swift 工具链。")
+    with LIVE_PHOTO_HELPER_LOCK:
+        if helper.exists():
+            return helper
+        try:
+            result = subprocess.run(
+                [xcrun, "swiftc", str(source), "-o", str(helper)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=180,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            raise ExportError(f"Live Photo 配对工具编译失败：{error}") from error
+        if result.returncode != 0 or not helper.exists():
+            detail = result.stderr.decode("utf-8", errors="replace").strip()
+            raise ExportError(f"Live Photo 配对工具编译失败：{detail}")
+    return helper
+
+
 class ExportSession:
     def __init__(
         self,
@@ -233,6 +266,7 @@ class ExportSession:
         frame_count: int,
         source: SourceMedia | None = None,
         source_name: str | None = None,
+        export_format: str = "mp4",
     ) -> None:
         self.session_id = uuid.uuid4().hex
         self.width = width
@@ -246,9 +280,14 @@ class ExportSession:
         OUTPUTS.mkdir(parents=True, exist_ok=True)
         self.source = source
         self.source_name = source.original_name if source else clean_source_name(source_name)
-        self.output_path = unique_output_path(build_output_file_name(self.source_name))
+        self.export_format = export_format
+        self.asset_identifier = str(uuid.uuid4()).upper() if export_format == "livephoto" else None
+        self.output_path = unique_output_path(build_output_file_name(self.source_name, export_format))
         self.file_name = self.output_path.name
         self.partial_path = OUTPUTS / f".{self.session_id}.partial.mp4"
+        self.cover_path = SOURCE_TEMP_ROOT / f"{self.session_id}-cover.jpg"
+        self.partial_archive_path = OUTPUTS / f".{self.session_id}.partial.zip"
+        self.pair_directory = SOURCE_TEMP_ROOT / f"{self.session_id}-livephoto"
         metadata = build_output_metadata(source, self.source_name)
 
         command = build_ffmpeg_command(
@@ -293,6 +332,8 @@ class ExportSession:
             except (BrokenPipeError, OSError) as error:
                 raise ExportError(f"写入 FFmpeg 失败：{self.error_detail()}") from error
             self.received_frames += 1
+            if self.export_format == "livephoto" and self.received_frames == self.frame_count:
+                self.cover_path.write_bytes(frame)
 
     def finish(self) -> Path:
         with self.lock:
@@ -314,9 +355,52 @@ class ExportSession:
             self.partial_path.unlink(missing_ok=True)
             raise ExportError(f"FFmpeg 编码失败：{self.error_detail()}")
 
-        os.replace(self.partial_path, self.output_path)
-        self._cleanup_source()
-        return self.output_path
+        try:
+            if self.export_format == "livephoto":
+                return self._finish_live_photo()
+            os.replace(self.partial_path, self.output_path)
+            return self.output_path
+        finally:
+            self._cleanup_source()
+
+    def _finish_live_photo(self) -> Path:
+        if not self.cover_path.exists() or not self.asset_identifier:
+            raise ExportError("Live Photo 封面帧缺失。")
+        helper = ensure_live_photo_helper()
+        self.pair_directory.mkdir(parents=True, exist_ok=True)
+        base_name = Path(self.source_name).stem.strip(" .")[:120] or "Live-Photo"
+        paired_video = self.pair_directory / f"{base_name}.MOV"
+        paired_photo = self.pair_directory / f"{base_name}.JPG"
+        source_path = str(self.source.path) if self.source is not None else "-"
+        try:
+            result = subprocess.run(
+                [
+                    str(helper),
+                    str(self.partial_path),
+                    str(self.cover_path),
+                    source_path,
+                    str(paired_video),
+                    str(paired_photo),
+                    self.asset_identifier,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=1800,
+                check=False,
+            )
+            if result.returncode != 0 or not paired_video.exists() or not paired_photo.exists():
+                detail = result.stderr.decode("utf-8", errors="replace").strip()
+                raise ExportError(f"Live Photo 配对失败：{detail or '未生成配对资源。'}")
+            with zipfile.ZipFile(self.partial_archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
+                archive.write(paired_photo, paired_photo.name)
+                archive.write(paired_video, paired_video.name)
+            os.replace(self.partial_archive_path, self.output_path)
+            return self.output_path
+        finally:
+            self.partial_path.unlink(missing_ok=True)
+            self.cover_path.unlink(missing_ok=True)
+            self.partial_archive_path.unlink(missing_ok=True)
+            shutil.rmtree(self.pair_directory, ignore_errors=True)
 
     def _cleanup_source(self) -> None:
         if self.source is not None:
@@ -338,6 +422,9 @@ class ExportSession:
             self.process.kill()
             self.process.wait(timeout=5)
         self.partial_path.unlink(missing_ok=True)
+        self.cover_path.unlink(missing_ok=True)
+        self.partial_archive_path.unlink(missing_ok=True)
+        shutil.rmtree(self.pair_directory, ignore_errors=True)
         self._cleanup_source()
 
 
@@ -366,7 +453,7 @@ def build_ffmpeg_command(
     command.extend([
         "-an",
         "-vf",
-        f"scale={width}:{height}:flags=lanczos,format=yuv420p",
+        f"scale={width}:{height}:flags=lanczos,setsar=1,format=yuv420p",
         "-c:v",
         "libx265",
         "-preset",
@@ -401,11 +488,20 @@ class SessionManager:
         frame_count: int,
         source: SourceMedia | None = None,
         source_name: str | None = None,
+        export_format: str = "mp4",
     ) -> ExportSession:
         with self.lock:
             if self.sessions:
                 raise ExportError("已有视频正在导出，请等待当前任务完成。")
-            session = ExportSession(width, height, fps, frame_count, source, source_name)
+            session = ExportSession(
+                width,
+                height,
+                fps,
+                frame_count,
+                source,
+                source_name,
+                export_format,
+            )
             self.sessions[session.session_id] = session
             return session
 
@@ -474,7 +570,7 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/health":
             self.send_json(
                 HTTPStatus.OK,
-                {"ok": True, "encoder": "libx265", "format": "H.265 MP4"},
+                {"ok": True, "encoder": "libx265", "format": "H.265 MP4 / Apple Live Photo"},
             )
             return
         super().do_GET()
@@ -532,6 +628,9 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
         frame_count = int(payload.get("frameCount", 0))
         source_token = str(payload.get("sourceToken") or "")
         source_name = clean_source_name(payload.get("sourceName"))
+        export_format = str(payload.get("exportFormat") or "mp4")
+        if export_format not in {"mp4", "livephoto"}:
+            raise ExportError("导出格式不受支持。")
         if width < 2 or height < 2 or width % 2 or height % 2:
             raise ExportError("视频宽高必须是大于 1 的偶数。")
         if width * height > MAX_PIXELS:
@@ -550,6 +649,7 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
                 frame_count,
                 source=source,
                 source_name=source_name,
+                export_format=export_format,
             )
         except Exception:
             if source is not None:
@@ -564,6 +664,7 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
                 "fps": fps,
                 "frameCount": frame_count,
                 "fileName": session.file_name,
+                "exportFormat": session.export_format,
             },
         )
 
@@ -654,6 +755,8 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
                 "fileName": session.file_name,
                 "outputPath": relative_path,
                 "downloadUrl": f"/{relative_path}",
+                "exportFormat": session.export_format,
+                "assetIdentifier": session.asset_identifier,
             },
         )
 

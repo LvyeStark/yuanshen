@@ -475,21 +475,22 @@
       cx,
       line1Y + animation.line1OffsetY * scale,
       line1Size,
-      700,
-      '#ded0bb',
+      600,
+      '#efe5d1',
       0.95 * animation.line1Alpha,
-      line1MaxWidth
+      line1MaxWidth,
+      { variant: 'eyebrow' }
     );
     drawTextLine(
       state.line2,
       cx,
       line2Y,
       line2Size,
-      850,
-      '#fff8ed',
+      720,
+      '#fffaf2',
       animation.line2Alpha,
       line2MaxWidth,
-      { scale: animation.line2Scale }
+      { scale: animation.line2Scale, variant: 'title' }
     );
     drawOrnamentDivider(cx, dividerY, dividerWidth * animation.dividerProgress, scale, animation.dividerProgress);
     drawTaskBand(
@@ -1040,37 +1041,37 @@
     }
     const opacity = Math.min(1, Math.max(0, strength));
     ctx.save();
-    const variantStrength = variant === 'task' ? 1 : 0.72;
-    ctx.globalCompositeOperation = 'screen';
-    ctx.shadowColor = `rgba(206, 139, 57, ${opacity * variantStrength * 0.72})`;
-    ctx.shadowBlur = height * 0.48;
+    const variantStrength = variant === 'task' ? 1 : 0.46;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.shadowColor = `rgba(238, 194, 112, ${opacity * variantStrength * 0.32})`;
+    ctx.shadowBlur = height * 0.62;
 
     const panel = ctx.createLinearGradient(cx - width / 2, cy, cx + width / 2, cy);
-    panel.addColorStop(0, 'rgba(117, 60, 18, 0)');
-    panel.addColorStop(0.1, `rgba(119, 61, 19, ${opacity * variantStrength * 0.3})`);
-    panel.addColorStop(0.28, `rgba(156, 88, 27, ${opacity * variantStrength * 0.54})`);
-    panel.addColorStop(0.5, `rgba(207, 146, 65, ${opacity * variantStrength * 0.72})`);
-    panel.addColorStop(0.72, `rgba(156, 88, 27, ${opacity * variantStrength * 0.54})`);
-    panel.addColorStop(0.9, `rgba(119, 61, 19, ${opacity * variantStrength * 0.3})`);
-    panel.addColorStop(1, 'rgba(117, 60, 18, 0)');
+    panel.addColorStop(0, 'rgba(241, 205, 139, 0)');
+    panel.addColorStop(0.14, `rgba(220, 177, 99, ${opacity * variantStrength * 0.08})`);
+    panel.addColorStop(0.34, `rgba(231, 190, 113, ${opacity * variantStrength * 0.2})`);
+    panel.addColorStop(0.5, `rgba(246, 215, 157, ${opacity * variantStrength * 0.34})`);
+    panel.addColorStop(0.66, `rgba(231, 190, 113, ${opacity * variantStrength * 0.2})`);
+    panel.addColorStop(0.86, `rgba(220, 177, 99, ${opacity * variantStrength * 0.08})`);
+    panel.addColorStop(1, 'rgba(241, 205, 139, 0)');
     ctx.fillStyle = panel;
     ctx.fillRect(cx - width / 2, cy - height / 2, width, height);
 
     ctx.shadowColor = 'transparent';
     const warmth = ctx.createLinearGradient(cx - width / 2, cy, cx + width / 2, cy);
     warmth.addColorStop(0, 'rgba(255, 218, 145, 0)');
-    warmth.addColorStop(0.25, `rgba(236, 175, 87, ${opacity * variantStrength * 0.12})`);
-    warmth.addColorStop(0.5, `rgba(255, 222, 151, ${opacity * variantStrength * 0.36})`);
-    warmth.addColorStop(0.75, `rgba(236, 175, 87, ${opacity * variantStrength * 0.12})`);
+    warmth.addColorStop(0.25, `rgba(244, 211, 150, ${opacity * variantStrength * 0.08})`);
+    warmth.addColorStop(0.5, `rgba(255, 235, 190, ${opacity * variantStrength * 0.2})`);
+    warmth.addColorStop(0.75, `rgba(244, 211, 150, ${opacity * variantStrength * 0.08})`);
     warmth.addColorStop(1, 'rgba(255, 218, 145, 0)');
     ctx.fillStyle = warmth;
     ctx.fillRect(cx - width / 2, cy - height / 2, width, height);
 
     const edge = ctx.createLinearGradient(cx - width / 2, cy, cx + width / 2, cy);
     edge.addColorStop(0, 'rgba(255, 234, 180, 0)');
-    edge.addColorStop(0.22, `rgba(255, 225, 164, ${opacity * 0.12})`);
-    edge.addColorStop(0.5, `rgba(255, 239, 198, ${opacity * 0.34})`);
-    edge.addColorStop(0.78, `rgba(255, 225, 164, ${opacity * 0.12})`);
+    edge.addColorStop(0.22, `rgba(255, 231, 181, ${opacity * variantStrength * 0.06})`);
+    edge.addColorStop(0.5, `rgba(255, 243, 211, ${opacity * variantStrength * 0.18})`);
+    edge.addColorStop(0.78, `rgba(255, 231, 181, ${opacity * variantStrength * 0.06})`);
     edge.addColorStop(1, 'rgba(255, 234, 180, 0)');
     ctx.fillStyle = edge;
     const edgeHeight = Math.max(1, height * 0.045);
@@ -1097,8 +1098,8 @@
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(255, 229, 176, 0.18)';
-    ctx.shadowBlur = Math.max(2, size * 0.08);
+    ctx.shadowColor = 'rgba(255, 230, 176, 0.36)';
+    ctx.shadowBlur = Math.max(3, size * 0.12);
     ctx.lineJoin = 'round';
     ctx.miterLimit = 2;
     ctx.strokeStyle = 'rgba(255, 244, 218, 0.42)';
@@ -1107,12 +1108,6 @@
     ctx.fillStyle = gradient;
     ctx.fillText(text, x, y);
 
-    ctx.shadowColor = 'rgba(39, 24, 14, 0.58)';
-    ctx.shadowBlur = Math.max(1.5, size * 0.055);
-    ctx.shadowOffsetY = Math.max(1, size * 0.025);
-    ctx.strokeStyle = 'rgba(76, 45, 22, 0.22)';
-    ctx.lineWidth = Math.max(0.5, size * 0.012);
-    ctx.strokeText(text, x, y + size * 0.015);
     ctx.restore();
   }
 
@@ -1186,11 +1181,13 @@
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.74)';
-    ctx.shadowBlur = Math.max(5, fittedSize * 0.15);
-    ctx.shadowOffsetY = Math.max(2, fittedSize * 0.055);
-    ctx.strokeStyle = 'rgba(65, 46, 28, 0.5)';
-    ctx.lineWidth = Math.max(2, fittedSize * 0.06);
+    const isTitle = options.variant === 'title';
+    const isEyebrow = options.variant === 'eyebrow';
+    ctx.shadowColor = isEyebrow ? 'rgba(211, 169, 102, 0.28)' : 'rgba(0, 0, 0, 0.46)';
+    ctx.shadowBlur = Math.max(3, fittedSize * (isTitle ? 0.09 : 0.07));
+    ctx.shadowOffsetY = isTitle ? Math.max(1, fittedSize * 0.025) : 0;
+    ctx.strokeStyle = isEyebrow ? 'rgba(255, 244, 218, 0.12)' : 'rgba(76, 58, 39, 0.34)';
+    ctx.lineWidth = Math.max(0.7, fittedSize * (isTitle ? 0.018 : 0.012));
     ctx.strokeText(text, 0, 0);
     ctx.fillStyle = color;
     ctx.fillText(text, 0, 0);
@@ -1554,11 +1551,17 @@
     return Math.max(1, Math.round((durationMs / 1000) * videoSettings.fps));
   }
 
-  function renderAnimationFrame(frameIndex, frameCount, emblems, motionMode = currentMotionMode()) {
+  function renderAnimationFrame(
+    frameIndex,
+    frameCount,
+    emblems,
+    motionMode = currentMotionMode(),
+    durationMs = getExportDurationMs()
+  ) {
     const elapsedMs = (frameIndex / videoSettings.fps) * 1000;
     const progress = frameIndex >= frameCount - 1
       ? 1
-      : getTimelineProgress(elapsedMs, getExportDurationMs(), uploadedMediaType);
+      : getTimelineProgress(elapsedMs, durationMs, uploadedMediaType);
     render({ emblems, progress, elapsedMs, motionMode, staticFrame: false });
   }
 
@@ -1733,8 +1736,10 @@
     updateStatusText();
   }
 
-  async function exportAnimatedWithPython() {
-    const frameCount = getVideoFrameCount();
+  async function exportAnimatedWithPython(exportFormat = 'mp4') {
+    const isLivePhoto = exportFormat === 'livephoto';
+    const exportDurationMs = isLivePhoto ? videoSettings.durationMs : getExportDurationMs();
+    const frameCount = getVideoFrameCount(exportDurationMs);
     const motionMode = currentMotionMode();
     let sourceToken = '';
     let session = null;
@@ -1764,6 +1769,7 @@
           height: canvas.height,
           fps: videoSettings.fps,
           frameCount,
+          exportFormat: exportFormat,
           sourceToken,
           sourceName: uploadedMediaName,
         }),
@@ -1772,7 +1778,13 @@
 
       for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
         await prepareMediaFrame(frameIndex);
-        renderAnimationFrame(frameIndex, frameCount, overlayAssets.highResEmblems, motionMode);
+        renderAnimationFrame(
+          frameIndex,
+          frameCount,
+          overlayAssets.highResEmblems,
+          motionMode,
+          exportDurationMs
+        );
         const frameBlob = await canvasToJpegBlob();
         const frameResponse = await fetch(`/api/video/${session.sessionId}/frame`, {
           method: 'POST',
@@ -1782,20 +1794,24 @@
         await readJsonResponse(frameResponse);
 
         if (frameIndex % 4 === 0 || frameIndex === frameCount - 1) {
-          activityMessage = `正在渲染并编码 H.265 MP4 ${frameIndex + 1}/${frameCount}...`;
+          activityMessage = `正在渲染${isLivePhoto ? ' Live Photo' : '并编码 H.265 MP4'} ${frameIndex + 1}/${frameCount}...`;
           updateStatusText();
           await new Promise((resolve) => requestAnimationFrame(resolve));
         }
       }
 
-      activityMessage = '画面帧已提交，正在完成 MP4 封装...';
+      activityMessage = isLivePhoto
+        ? '画面帧已提交，正在写入 Apple 配对标识与静态帧时间...'
+        : '画面帧已提交，正在完成 MP4 封装...';
       updateStatusText();
       const finishResponse = await fetch(`/api/video/${session.sessionId}/finish`, {
         method: 'POST',
       });
       const result = await readJsonResponse(finishResponse);
       setServerDownload(result.downloadUrl, result.fileName);
-      activityMessage = `已生成 ${result.width} x ${result.height} H.265 MP4，文件名已参考原素材，兼容的拍摄元数据已写入；文件同时保存在 ${result.outputPath}。`;
+      activityMessage = isLivePhoto
+        ? `已生成 ${result.width} x ${result.height}、3.0 秒 Live Photo 配对包；解压后将同名 JPG 与 MOV 一起导入“照片”。文件位于 ${result.outputPath}。`
+        : `已生成 ${result.width} x ${result.height} H.265 MP4，文件名已参考原素材，兼容的拍摄元数据已写入；文件同时保存在 ${result.outputPath}。`;
       updateStatusText();
     } catch (error) {
       if (session?.sessionId) {
@@ -1807,7 +1823,8 @@
     }
   }
 
-  async function exportAnimatedVideo() {
+  async function exportAnimatedVideo(exportFormat = 'mp4') {
+    const isLivePhoto = exportFormat === 'livephoto';
     if (!selectedHighResEmblemReady()) {
       activityMessage = '高清大图标仍在加载，请稍等后再导出视频。';
       updateStatusText();
@@ -1819,11 +1836,16 @@
     exportButton.disabled = true;
     try {
       downloadLink.hidden = true;
-      activityMessage = `正在准备 ${videoCanvasSize.width} x ${videoCanvasSize.height} H.265 MP4 视频导出...`;
+      activityMessage = `正在准备 ${videoCanvasSize.width} x ${videoCanvasSize.height} ${isLivePhoto ? 'Apple Live Photo' : 'H.265 MP4 视频'}导出...`;
       updateStatusText();
-      await exportAnimatedWithPython();
+      await exportAnimatedWithPython(exportFormat);
     } catch (pythonError) {
       console.warn(pythonError);
+      if (isLivePhoto) {
+        activityMessage = `Live Photo 导出失败：${pythonError.message} 请确认已在 macOS 上通过 python3 server.py 启动项目。`;
+        updateStatusText();
+        return;
+      }
       const exceedsBrowserLimit = videoCanvasSize.width > videoSettings.maxWidth
         || videoCanvasSize.height > videoSettings.maxHeight;
       if (exceedsBrowserLimit) {
@@ -1856,8 +1878,9 @@
 
   function exportSelectedFormat() {
     stopAnimationPreview({ renderFinal: false });
-    if (selectedExportMode() === 'video') {
-      exportAnimatedVideo();
+    const exportMode = selectedExportMode();
+    if (exportMode === 'video' || exportMode === 'livephoto') {
+      exportAnimatedVideo(exportMode === 'livephoto' ? 'livephoto' : 'mp4');
       return;
     }
     exportHighResImage();
@@ -1924,7 +1947,12 @@
   }
 
   function updateExportButtonLabel() {
-    exportButton.textContent = selectedExportMode() === 'video' ? '导出视频' : '导出图片';
+    const labels = {
+      image: '导出图片',
+      video: '导出视频',
+      livephoto: '导出 Live Photo',
+    };
+    exportButton.textContent = labels[selectedExportMode()] || labels.image;
   }
 
   function updateEffectValueLabels() {

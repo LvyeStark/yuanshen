@@ -82,12 +82,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=1.9"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=2.0"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=1.9"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=1.9"></script>'),
+  html.indexOf('<script src="js/script.js?v=2.0"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=2.0"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(
@@ -163,6 +163,32 @@ assert.match(
   /<input type="radio" name="exportMode" value="video">\s*<span>[^<]*<\/span>/u,
   'video export should be available as an export mode'
 );
+
+assert.match(
+  html,
+  /<input type="radio" name="exportMode" value="livephoto">\s*<span>Apple Live Photo<\/span>/u,
+  'Apple Live Photo should be available as an export mode'
+);
+
+assert.match(
+  script,
+  /exportFormat\s*:\s*exportFormat/u,
+  'the local export service should receive the selected output format'
+);
+
+assert.ok(
+  script.includes("const exportDurationMs = isLivePhoto ? videoSettings.durationMs : getExportDurationMs()"),
+  'Live Photo export should use the exact three-second project timeline'
+);
+
+assert.ok(
+  script.includes("rgba(246, 215, 157") && script.includes("rgba(255, 235, 190"),
+  'task text panels should use a pale gold translucent light band'
+);
+
+for (const darkBandColor of ['rgba(117, 60, 18', 'rgba(119, 61, 19', 'rgba(156, 88, 27']) {
+  assert.equal(script.includes(darkBandColor), false, `dark task panel color ${darkBandColor} should be removed`);
+}
 
 for (const motionMode of ['off', 'soft', 'full']) {
   assert.match(
