@@ -205,23 +205,30 @@ test('video export settings use a short shareable 1080p timeline', () => {
   });
 });
 
-test('animated overlay brings title elements in together before task text', () => {
+test('animated overlay stages its elements across almost the full video timeline', () => {
   const settings = getVideoExportSettings();
-  const at300ms = getAnimatedOverlayState(300 / settings.durationMs);
-  assert.ok(at300ms.emblemAlpha > 0.75);
-  assert.ok(at300ms.line1Alpha > 0.75);
-  assert.ok(at300ms.line2Alpha > 0.75);
-  assert.ok(at300ms.dividerProgress > 0.75);
-  assert.equal(at300ms.taskBandProgress, 0);
-  assert.equal(at300ms.continuationAlpha, 0);
+  const at600ms = getAnimatedOverlayState(600 / settings.durationMs);
+  assert.ok(at600ms.emblemAlpha > 0.7);
+  assert.equal(at600ms.line1Alpha, 0);
+  assert.equal(at600ms.line2Alpha, 0);
+  assert.equal(at600ms.taskBandProgress, 0);
+  assert.equal(at600ms.continuationAlpha, 0);
 
-  const at800ms = getAnimatedOverlayState(800 / settings.durationMs);
-  assert.ok(at800ms.emblemAlpha > 0.98);
-  assert.ok(at800ms.line1Alpha > 0.98);
-  assert.ok(at800ms.line2Alpha > 0.98);
-  assert.ok(at800ms.dividerProgress > 0.98);
-  assert.ok(at800ms.taskBandProgress > 0.65);
-  assert.ok(at800ms.continuationAlpha > 0.65);
+  const at1600ms = getAnimatedOverlayState(1600 / settings.durationMs);
+  assert.equal(at1600ms.emblemAlpha, 1);
+  assert.ok(at1600ms.line1Alpha > 0.98);
+  assert.ok(at1600ms.line2Alpha > 0.8);
+  assert.ok(at1600ms.dividerProgress > 0.2);
+  assert.equal(at1600ms.taskBandProgress, 0);
+  assert.equal(at1600ms.continuationAlpha, 0);
+
+  const at2500ms = getAnimatedOverlayState(2500 / settings.durationMs);
+  assert.ok(at2500ms.taskBandProgress > 0.9);
+  assert.equal(at2500ms.continuationAlpha, 0);
+
+  const at3000ms = getAnimatedOverlayState(3000 / settings.durationMs);
+  assert.equal(at3000ms.taskBandProgress, 1);
+  assert.ok(at3000ms.continuationAlpha > 0.99);
 });
 
 test('animated overlay starts hidden and ends matching the still layout', () => {
@@ -257,14 +264,14 @@ test('animated overlay starts hidden and ends matching the still layout', () => 
 });
 
 test('emblem entrance combines a smoke ring, rebound, flash, and outward sparkles', () => {
-  assert.equal(getAnimatedOverlayState(0.04).emblemFlash, 0);
-  assert.ok(getAnimatedOverlayState(0.1).emblemFlash > 0.9);
-  assert.equal(getAnimatedOverlayState(0.18).emblemFlash, 0);
-  assert.ok(getAnimatedOverlayState(0.1).emblemRingProgress > 0.7);
-  assert.ok(getAnimatedOverlayState(0.1).emblemRingAlpha > 0.5);
-  assert.ok(getAnimatedOverlayState(0.16).emblemSparkProgress > 0.8);
-  assert.ok(getAnimatedOverlayState(0.16).emblemSparkAlpha > 0.5);
-  assert.ok(getAnimatedOverlayState(0.12).emblemScale > 1);
+  assert.equal(getAnimatedOverlayState(0.15).emblemFlash, 0);
+  assert.ok(getAnimatedOverlayState(0.27).emblemFlash > 0.9);
+  assert.equal(getAnimatedOverlayState(0.42).emblemFlash, 0);
+  assert.ok(getAnimatedOverlayState(0.27).emblemRingProgress > 0.85);
+  assert.ok(getAnimatedOverlayState(0.27).emblemRingAlpha > 0.8);
+  assert.ok(getAnimatedOverlayState(0.45).emblemSparkProgress > 0.9);
+  assert.ok(getAnimatedOverlayState(0.45).emblemSparkAlpha > 0.8);
+  assert.ok(getAnimatedOverlayState(0.26).emblemScale > 1);
 });
 
 test('particle state is deterministic for the same seed and timeline position', () => {
@@ -337,27 +344,27 @@ test('particle frame values stay finite and inside the requested canvas', () => 
   }
 });
 
-test('animated overlay delays task complete and continuation by about half a second', () => {
+test('task complete and continuation occupy the final second of the animation', () => {
   const settings = getVideoExportSettings();
-  const beforeTask = getAnimatedOverlayState(480 / settings.durationMs);
-  assert.ok(beforeTask.emblemAlpha > 0.95);
-  assert.ok(beforeTask.line1Alpha > 0.95);
-  assert.ok(beforeTask.line2Alpha > 0.95);
-  assert.ok(beforeTask.dividerProgress > 0.95);
+  const beforeTask = getAnimatedOverlayState(2000 / settings.durationMs);
+  assert.equal(beforeTask.emblemAlpha, 1);
+  assert.equal(beforeTask.line1Alpha, 1);
+  assert.ok(beforeTask.line2Alpha > 0.98);
+  assert.ok(beforeTask.dividerProgress > 0.9);
   assert.equal(beforeTask.taskBandProgress, 0);
   assert.equal(beforeTask.continuationAlpha, 0);
 
-  const afterTask = getAnimatedOverlayState(720 / settings.durationMs);
-  assert.ok(afterTask.taskBandProgress > 0.2);
-  assert.ok(afterTask.continuationAlpha > 0.2);
+  const taskVisible = getAnimatedOverlayState(2600 / settings.durationMs);
+  assert.ok(taskVisible.taskBandProgress > 0.95);
+  assert.equal(taskVisible.continuationAlpha, 0);
 
-  const middle = getAnimatedOverlayState(0.28);
-  assert.ok(middle.overlayAlpha > 0.9);
-  assert.ok(middle.emblemAlpha > 0.8);
-  assert.ok(middle.line2Alpha > 0.75);
-  assert.ok(middle.dividerProgress > 0.75);
-  assert.ok(middle.taskBandProgress > 0.65);
-  assert.ok(middle.continuationAlpha > 0.65);
+  const nearEnd = getAnimatedOverlayState(3000 / settings.durationMs);
+  assert.equal(nearEnd.overlayAlpha, 1);
+  assert.equal(nearEnd.emblemAlpha, 1);
+  assert.equal(nearEnd.line2Alpha, 1);
+  assert.equal(nearEnd.dividerProgress, 1);
+  assert.equal(nearEnd.taskBandProgress, 1);
+  assert.ok(nearEnd.continuationAlpha > 0.99);
 });
 
 test('image exports animate from the beginning while video exports animate at the end', () => {
