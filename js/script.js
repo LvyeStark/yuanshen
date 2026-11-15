@@ -53,6 +53,8 @@
   };
   let uploadedMedia = null;
   let uploadedMediaType = 'image';
+  let uploadedMediaName = '';
+  let uploadedSourceFile = null;
   let activityMessage = statusText.textContent;
   let assetWarning = '';
   let highResMessage = '';
@@ -1380,10 +1382,12 @@
     };
   }
 
-  function setUploadedMedia(media, type, name) {
+  function setUploadedMedia(media, type, name, sourceFile = null) {
     stopAnimationPreview({ renderFinal: false });
     uploadedMedia = media;
     uploadedMediaType = type;
+    uploadedMediaName = name || '';
+    uploadedSourceFile = sourceFile;
     const label = type === 'video' ? '视频' : '图片';
     activityMessage = `已加载 ${name} ${label}，可以预览动画或导出。`;
     updateStatusText();
@@ -1396,20 +1400,20 @@
     }
   }
 
-  function setUploadedImage(image, name) {
-    setUploadedMedia(image, 'image', name);
+  function setUploadedImage(image, name, sourceFile = null) {
+    setUploadedMedia(image, 'image', name, sourceFile);
   }
 
-  function loadImageSource(src, name) {
+  function loadImageSource(src, name, sourceFile = null) {
     loadImage(src)
-      .then((image) => setUploadedImage(image, name))
+      .then((image) => setUploadedImage(image, name, sourceFile))
       .catch(() => {
         activityMessage = '图片读取失败，请换一张图片重试。';
         updateStatusText();
       });
   }
 
-  function loadVideoSource(src, name) {
+  function loadVideoSource(src, name, sourceFile = null) {
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
@@ -1419,7 +1423,7 @@
       video.currentTime = 0;
     }, { once: true });
     video.addEventListener('loadeddata', () => {
-      setUploadedMedia(video, 'video', name);
+      setUploadedMedia(video, 'video', name, sourceFile);
     }, { once: true });
     video.addEventListener('error', () => {
       activityMessage = '视频读取失败，请换一个视频重试。';
@@ -1457,6 +1461,20 @@
 
   function selectedHighResEmblemReady() {
     return Boolean(overlayAssets.highResEmblems[currentState().emblem]);
+  }
+
+  function getDerivedVideoFileName(extension = 'mp4') {
+    const rawName = String(uploadedMediaName || uploadedSourceFile?.name || 'source-media')
+      .replace(/\\/gu, '/')
+      .split('/')
+      .pop();
+    const stem = rawName.replace(/\.[^.]+$/u, '') || 'source-media';
+    const safeStem = stem
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/gu, '-')
+      .replace(/[.\s]+$/gu, '')
+      .slice(0, 140) || 'source-media';
+    const safeExtension = extension === 'webm' ? 'webm' : 'mp4';
+    return `${safeStem}.${safeExtension}`;
   }
 
   function downloadBlob(blob, fileName) {
@@ -1652,8 +1670,9 @@
       throw encoderError;
     }
     muxer.finalize();
-    downloadBlob(new Blob([target.buffer], { type: 'video/mp4' }), videoSettings.mp4FileName);
-    activityMessage = `已生成并下载 ${videoSettings.mp4FileName}。`;
+    const fileName = getDerivedVideoFileName('mp4');
+    downloadBlob(new Blob([target.buffer], { type: 'video/mp4' }), fileName);
+    activityMessage = `已生成并下载 ${fileName}。浏览器备用导出不支持完整继承 EXIF。`;
     updateStatusText();
   }
 
@@ -1708,27 +1727,49 @@
       trackItem.stop();
     }
 
-    downloadBlob(new Blob(chunks, { type: mimeType }), videoSettings.webmFileName);
-    activityMessage = `MP4 不可用，已生成并下载 ${videoSettings.webmFileName}。`;
+    const fileName = getDerivedVideoFileName('webm');
+    downloadBlob(new Blob(chunks, { type: mimeType }), fileName);
+    activityMessage = `MP4 不可用，已生成并下载 ${fileName}。WebM 备用导出不支持完整继承 EXIF。`;
     updateStatusText();
   }
 
   async function exportAnimatedWithPython() {
     const frameCount = getVideoFrameCount();
     const motionMode = currentMotionMode();
-    const startResponse = await fetch('/api/video/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        width: canvas.width,
-        height: canvas.height,
-        fps: videoSettings.fps,
-        frameCount,
-      }),
-    });
-    const session = await readJsonResponse(startResponse);
+    let sourceToken = '';
+    let session = null;
 
     try {
+      if (uploadedSourceFile) {
+        activityMessage = `正在通过 127.0.0.1 读取 ${uploadedSourceFile.name} 的拍摄元数据...`;
+        updateStatusText();
+        const sourceResponse = await fetch('/api/source', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Source-Name': encodeURIComponent(uploadedSourceFile.name),
+            'X-Source-Last-Modified': String(uploadedSourceFile.lastModified || ''),
+          },
+          body: uploadedSourceFile,
+        });
+        const sourceResult = await readJsonResponse(sourceResponse);
+        sourceToken = sourceResult.sourceToken;
+      }
+
+      const startResponse = await fetch('/api/video/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          width: canvas.width,
+          height: canvas.height,
+          fps: videoSettings.fps,
+          frameCount,
+          sourceToken,
+          sourceName: uploadedMediaName,
+        }),
+      });
+      session = await readJsonResponse(startResponse);
+
       for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
         await prepareMediaFrame(frameIndex);
         renderAnimationFrame(frameIndex, frameCount, overlayAssets.highResEmblems, motionMode);
@@ -1754,10 +1795,14 @@
       });
       const result = await readJsonResponse(finishResponse);
       setServerDownload(result.downloadUrl, result.fileName);
-      activityMessage = `已生成 ${result.width} x ${result.height} H.265 MP4，文件同时保存在 ${result.outputPath}。`;
+      activityMessage = `已生成 ${result.width} x ${result.height} H.265 MP4，文件名已参考原素材，兼容的拍摄元数据已写入；文件同时保存在 ${result.outputPath}。`;
       updateStatusText();
     } catch (error) {
-      fetch(`/api/video/${session.sessionId}/cancel`, { method: 'POST' }).catch(() => {});
+      if (session?.sessionId) {
+        fetch(`/api/video/${session.sessionId}/cancel`, { method: 'POST' }).catch(() => {});
+      } else if (sourceToken) {
+        fetch(`/api/source/${sourceToken}/cancel`, { method: 'POST' }).catch(() => {});
+      }
       throw error;
     }
   }
@@ -1949,10 +1994,10 @@
       }
       const url = URL.createObjectURL(file);
       if ((file.type || '').startsWith('video/') || /\.(mp4|webm|mov|m4v)$/iu.test(file.name)) {
-        loadVideoSource(url, file.name);
+        loadVideoSource(url, file.name, file);
         return;
       }
-      loadImageSource(url, file.name);
+      loadImageSource(url, file.name, file);
     });
 
     [

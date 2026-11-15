@@ -7,18 +7,23 @@ import argparse
 import atexit
 import json
 import os
+import plistlib
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import uuid
 from collections import deque
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 
 ROOT = Path(__file__).resolve().parent
@@ -26,6 +31,9 @@ VENDOR = ROOT / "vendor"
 OUTPUTS = ROOT / "outputs"
 MAX_FRAME_BYTES = 64 * 1024 * 1024
 MAX_PIXELS = 150_000_000
+MAX_SOURCE_BYTES = 20 * 1024 * 1024 * 1024
+SOURCE_TEMP_ROOT = Path(tempfile.mkdtemp(prefix="task-overlay-source-"))
+atexit.register(shutil.rmtree, SOURCE_TEMP_ROOT, True)
 
 sys.path.insert(0, str(VENDOR))
 
@@ -41,12 +49,191 @@ except ImportError as error:  # pragma: no cover - exercised when setup is incom
 FFMPEG_EXE = imageio_ffmpeg.get_ffmpeg_exe()
 
 
+def clean_source_name(value: str | None) -> str:
+    raw_name = str(value or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+    clean_name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", raw_name).strip(" .")
+    return clean_name[:180] or "source-media"
+
+
+def build_output_file_name(source_name: str | None) -> str:
+    clean_name = clean_source_name(source_name)
+    stem = Path(clean_name).stem.strip(" .") or "source-media"
+    return f"{stem[:140]}.mp4"
+
+
+def unique_output_path(file_name: str) -> Path:
+    candidate = OUTPUTS / file_name
+    if not candidate.exists():
+        return candidate
+    stem = candidate.stem
+    for index in range(2, 10_000):
+        numbered = OUTPUTS / f"{stem}-{index}{candidate.suffix}"
+        if not numbered.exists():
+            return numbered
+    raise ExportError("无法为导出视频分配不重复的文件名。")
+
+
+@dataclass(frozen=True)
+class SourceMedia:
+    token: str
+    path: Path
+    original_name: str
+    last_modified_ms: int | None
+
+
+MDLS_METADATA_KEYS = (
+    "kMDItemContentCreationDate",
+    "kMDItemAcquisitionMake",
+    "kMDItemAcquisitionModel",
+    "kMDItemLatitude",
+    "kMDItemLongitude",
+    "kMDItemAltitude",
+    "kMDItemPixelWidth",
+    "kMDItemPixelHeight",
+    "kMDItemOrientation",
+    "kMDItemExposureTimeSeconds",
+    "kMDItemFNumber",
+    "kMDItemFocalLength",
+    "kMDItemISOSpeed",
+)
+
+
+def _iso_datetime(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        date_value = value
+    elif value:
+        try:
+            date_value = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if date_value.tzinfo is None:
+        date_value = date_value.replace(tzinfo=timezone.utc)
+    return date_value.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def read_macos_metadata(path: Path) -> dict[str, Any]:
+    mdls = shutil.which("mdls")
+    if not mdls:
+        return {}
+    try:
+        result = subprocess.run(
+            [mdls, "-plist", "-", str(path)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+        )
+        payload = plistlib.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, plistlib.InvalidFileException):
+        return {}
+    return {key: payload[key] for key in MDLS_METADATA_KEYS if payload.get(key) is not None}
+
+
+def _unescape_ffmetadata(value: str) -> str:
+    return re.sub(r"\\([\\=;#])", r"\1", value)
+
+
+def read_ffmpeg_metadata(path: Path) -> dict[str, str]:
+    try:
+        result = subprocess.run(
+            [
+                FFMPEG_EXE,
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(path),
+                "-map_metadata",
+                "0",
+                "-f",
+                "ffmetadata",
+                "-",
+            ],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    ignored_keys = {"major_brand", "minor_version", "compatible_brands", "encoder"}
+    metadata: dict[str, str] = {}
+    for line in result.stdout.decode("utf-8", errors="replace").splitlines():
+        if not line or line.startswith((";", "#")) or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        clean_key = re.sub(r"[^A-Za-z0-9_.-]", "_", _unescape_ffmetadata(key).strip())
+        if not clean_key or clean_key.lower() in ignored_keys:
+            continue
+        metadata[clean_key] = _unescape_ffmetadata(value).strip()
+    return metadata
+
+
+def build_output_metadata(source: SourceMedia | None, fallback_name: str | None) -> dict[str, str]:
+    original_name = source.original_name if source else clean_source_name(fallback_name)
+    metadata: dict[str, str] = read_ffmpeg_metadata(source.path) if source else {}
+    metadata.update({
+        "original_filename": original_name,
+        "encoded_by": "Teyvat Task Overlay Studio / FFmpeg libx265",
+    })
+    metadata.setdefault("title", f"{Path(original_name).stem} task overlay")
+    source_metadata = read_macos_metadata(source.path) if source else {}
+    creation_time = _iso_datetime(source_metadata.get("kMDItemContentCreationDate"))
+    if not creation_time:
+        creation_time = _iso_datetime(metadata.get("creation_time"))
+    if not creation_time and source and source.last_modified_ms:
+        creation_time = datetime.fromtimestamp(
+            source.last_modified_ms / 1000,
+            tz=timezone.utc,
+        ).isoformat(timespec="seconds").replace("+00:00", "Z")
+    if creation_time:
+        metadata["creation_time"] = creation_time
+        metadata["com.apple.quicktime.creationdate"] = creation_time
+
+    make = source_metadata.get("kMDItemAcquisitionMake")
+    model = source_metadata.get("kMDItemAcquisitionModel")
+    if make:
+        metadata["com.apple.quicktime.make"] = str(make)
+        metadata["camera_make"] = str(make)
+    if model:
+        metadata["com.apple.quicktime.model"] = str(model)
+        metadata["camera_model"] = str(model)
+
+    latitude = source_metadata.get("kMDItemLatitude")
+    longitude = source_metadata.get("kMDItemLongitude")
+    if latitude is not None and longitude is not None:
+        altitude = float(source_metadata.get("kMDItemAltitude") or 0)
+        location = f"{float(latitude):+09.5f}{float(longitude):+010.5f}{altitude:+07.2f}/"
+        metadata["com.apple.quicktime.location.ISO6709"] = location
+        metadata["location"] = location
+
+    summary = {
+        key.removeprefix("kMDItem"): (
+            _iso_datetime(value) if isinstance(value, datetime) else value
+        )
+        for key, value in source_metadata.items()
+    }
+    if summary:
+        metadata["source_metadata"] = json.dumps(summary, ensure_ascii=False, separators=(",", ":"))
+    return metadata
+
+
 class ExportError(RuntimeError):
     """Expected export failure that can be shown to the browser."""
 
 
 class ExportSession:
-    def __init__(self, width: int, height: int, fps: int, frame_count: int) -> None:
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        frame_count: int,
+        source: SourceMedia | None = None,
+        source_name: str | None = None,
+    ) -> None:
         self.session_id = uuid.uuid4().hex
         self.width = width
         self.height = height
@@ -57,16 +244,19 @@ class ExportSession:
         self.stderr_tail: deque[str] = deque(maxlen=24)
 
         OUTPUTS.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.file_name = f"task-overlay-video-{stamp}-{width}x{height}.mp4"
-        self.output_path = OUTPUTS / self.file_name
+        self.source = source
+        self.source_name = source.original_name if source else clean_source_name(source_name)
+        self.output_path = unique_output_path(build_output_file_name(self.source_name))
+        self.file_name = self.output_path.name
         self.partial_path = OUTPUTS / f".{self.session_id}.partial.mp4"
+        metadata = build_output_metadata(source, self.source_name)
 
         command = build_ffmpeg_command(
             width=width,
             height=height,
             fps=fps,
             output_path=self.partial_path,
+            metadata=metadata,
         )
         self.process = subprocess.Popen(
             command,
@@ -125,7 +315,13 @@ class ExportSession:
             raise ExportError(f"FFmpeg 编码失败：{self.error_detail()}")
 
         os.replace(self.partial_path, self.output_path)
+        self._cleanup_source()
         return self.output_path
+
+    def _cleanup_source(self) -> None:
+        if self.source is not None:
+            self.source.path.unlink(missing_ok=True)
+            self.source = None
 
     def cancel(self) -> None:
         with self.lock:
@@ -142,10 +338,17 @@ class ExportSession:
             self.process.kill()
             self.process.wait(timeout=5)
         self.partial_path.unlink(missing_ok=True)
+        self._cleanup_source()
 
 
-def build_ffmpeg_command(width: int, height: int, fps: int, output_path: Path) -> list[str]:
-    return [
+def build_ffmpeg_command(
+    width: int,
+    height: int,
+    fps: int,
+    output_path: Path,
+    metadata: dict[str, str] | None = None,
+) -> list[str]:
+    command = [
         FFMPEG_EXE,
         "-hide_banner",
         "-loglevel",
@@ -159,6 +362,8 @@ def build_ffmpeg_command(width: int, height: int, fps: int, output_path: Path) -
         str(fps),
         "-i",
         "pipe:0",
+    ]
+    command.extend([
         "-an",
         "-vf",
         f"scale={width}:{height}:flags=lanczos,format=yuv420p",
@@ -171,13 +376,16 @@ def build_ffmpeg_command(width: int, height: int, fps: int, output_path: Path) -
         "-tag:v",
         "hvc1",
         "-movflags",
-        "+faststart",
+        "+faststart+use_metadata_tags",
         "-x265-params",
         "log-level=error",
         "-f",
         "mp4",
-        str(output_path),
-    ]
+    ])
+    for key, value in (metadata or {}).items():
+        command.extend(["-metadata", f"{key}={value}"])
+    command.append(str(output_path))
+    return command
 
 
 class SessionManager:
@@ -185,11 +393,19 @@ class SessionManager:
         self.sessions: dict[str, ExportSession] = {}
         self.lock = threading.Lock()
 
-    def create(self, width: int, height: int, fps: int, frame_count: int) -> ExportSession:
+    def create(
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        frame_count: int,
+        source: SourceMedia | None = None,
+        source_name: str | None = None,
+    ) -> ExportSession:
         with self.lock:
             if self.sessions:
                 raise ExportError("已有视频正在导出，请等待当前任务完成。")
-            session = ExportSession(width, height, fps, frame_count)
+            session = ExportSession(width, height, fps, frame_count, source, source_name)
             self.sessions[session.session_id] = session
             return session
 
@@ -212,8 +428,34 @@ class SessionManager:
             session.cancel()
 
 
+class SourceManager:
+    def __init__(self) -> None:
+        self.sources: dict[str, SourceMedia] = {}
+        self.lock = threading.Lock()
+
+    def add(self, source: SourceMedia) -> None:
+        with self.lock:
+            self.sources[source.token] = source
+
+    def take(self, token: str) -> SourceMedia:
+        with self.lock:
+            source = self.sources.pop(token, None)
+        if source is None:
+            raise ExportError("原素材元数据已失效，请重新选择文件后导出。")
+        return source
+
+    def cancel_all(self) -> None:
+        with self.lock:
+            sources = list(self.sources.values())
+            self.sources.clear()
+        for source in sources:
+            source.path.unlink(missing_ok=True)
+
+
 SESSIONS = SessionManager()
+SOURCES = SourceManager()
 SESSION_ROUTE = re.compile(r"^/api/video/([0-9a-f]{32})/(frame|finish|cancel)$")
+SOURCE_ROUTE = re.compile(r"^/api/source/([0-9a-f]{32})/cancel$")
 
 
 class ExportRequestHandler(SimpleHTTPRequestHandler):
@@ -239,8 +481,16 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         try:
+            if self.path == "/api/source":
+                self.handle_source_upload()
+                return
             if self.path == "/api/video/start":
                 self.handle_start()
+                return
+
+            source_match = SOURCE_ROUTE.fullmatch(self.path)
+            if source_match is not None:
+                self.handle_source_cancel(source_match.group(1))
                 return
 
             match = SESSION_ROUTE.fullmatch(self.path)
@@ -280,6 +530,8 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
         height = int(payload.get("height", 0))
         fps = int(payload.get("fps", 0))
         frame_count = int(payload.get("frameCount", 0))
+        source_token = str(payload.get("sourceToken") or "")
+        source_name = clean_source_name(payload.get("sourceName"))
         if width < 2 or height < 2 or width % 2 or height % 2:
             raise ExportError("视频宽高必须是大于 1 的偶数。")
         if width * height > MAX_PIXELS:
@@ -289,7 +541,20 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
         if frame_count < 1 or frame_count > 18_000:
             raise ExportError("视频帧数超出安全范围。")
 
-        session = SESSIONS.create(width, height, fps, frame_count)
+        source = SOURCES.take(source_token) if source_token else None
+        try:
+            session = SESSIONS.create(
+                width,
+                height,
+                fps,
+                frame_count,
+                source=source,
+                source_name=source_name,
+            )
+        except Exception:
+            if source is not None:
+                source.path.unlink(missing_ok=True)
+            raise
         self.send_json(
             HTTPStatus.CREATED,
             {
@@ -298,8 +563,60 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
                 "height": height,
                 "fps": fps,
                 "frameCount": frame_count,
+                "fileName": session.file_name,
             },
         )
+
+    def handle_source_upload(self) -> None:
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0]
+        if content_type != "application/octet-stream":
+            raise ExportError("原素材必须以二进制文件上传。")
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > MAX_SOURCE_BYTES:
+            raise ExportError("原素材大小不正确或超过 20 GiB 上限。")
+        original_name = clean_source_name(unquote(self.headers.get("X-Source-Name", "")))
+        last_modified_text = self.headers.get("X-Source-Last-Modified", "")
+        try:
+            last_modified_ms = int(last_modified_text) if last_modified_text else None
+        except ValueError:
+            last_modified_ms = None
+        token = uuid.uuid4().hex
+        suffix = Path(original_name).suffix[:16]
+        source_path = SOURCE_TEMP_ROOT / f"{token}{suffix}"
+        remaining = length
+        try:
+            with source_path.open("wb") as source_file:
+                while remaining > 0:
+                    chunk = self.rfile.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        raise ExportError("原素材上传不完整。")
+                    source_file.write(chunk)
+                    remaining -= len(chunk)
+            if last_modified_ms:
+                timestamp = last_modified_ms / 1000
+                os.utime(source_path, (timestamp, timestamp))
+        except Exception:
+            source_path.unlink(missing_ok=True)
+            raise
+        source = SourceMedia(token, source_path, original_name, last_modified_ms)
+        SOURCES.add(source)
+        self.send_json(
+            HTTPStatus.CREATED,
+            {
+                "sourceToken": token,
+                "sourceName": original_name,
+                "sourceBytes": length,
+            },
+        )
+
+    def handle_source_cancel(self, source_token: str) -> None:
+        try:
+            source = SOURCES.take(source_token)
+        except ExportError:
+            self.send_json(HTTPStatus.OK, {"ok": True})
+            return
+        source.path.unlink(missing_ok=True)
+        self.send_json(HTTPStatus.OK, {"ok": True})
 
     def handle_frame(self, session_id: str) -> None:
         content_type = self.headers.get("Content-Type", "").split(";", 1)[0]
@@ -361,6 +678,7 @@ def main() -> None:
     handler = partial(ExportRequestHandler, directory=str(ROOT))
     server = LocalExportServer((args.host, args.port), handler)
     atexit.register(SESSIONS.cancel_all)
+    atexit.register(SOURCES.cancel_all)
     print(f"本地项目：http://{args.host}:{args.port}/index.html", flush=True)
     print(f"H.265 编码器：{FFMPEG_EXE}", flush=True)
     try:
@@ -369,6 +687,8 @@ def main() -> None:
         pass
     finally:
         SESSIONS.cancel_all()
+        SOURCES.cancel_all()
+        shutil.rmtree(SOURCE_TEMP_ROOT, ignore_errors=True)
         server.server_close()
 
 

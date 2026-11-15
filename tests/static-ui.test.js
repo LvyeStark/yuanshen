@@ -82,12 +82,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=1.8"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=1.9"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=1.8"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=1.8"></script>'),
+  html.indexOf('<script src="js/script.js?v=1.9"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=1.9"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(
@@ -144,6 +144,18 @@ assert.match(
   script,
   /\/api\/video\/start/u,
   'the browser should start a local Python video export session'
+);
+
+assert.match(
+  script,
+  /\/api\/source/u,
+  'the original media should be passed to the local service for metadata preservation'
+);
+
+assert.match(
+  script,
+  /getDerivedVideoFileName/u,
+  'browser fallback exports should derive their filename from the source media'
 );
 
 assert.match(

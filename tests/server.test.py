@@ -24,6 +24,32 @@ class ServerConfigurationTests(unittest.TestCase):
     def test_camera_resolution_is_within_server_safety_limit(self):
         self.assertLessEqual(8256 * 5504, server.MAX_PIXELS)
 
+    def test_output_name_is_derived_from_the_original_media_name(self):
+        self.assertEqual(
+            server.build_output_file_name("IMG_8256.HEIC"),
+            "IMG_8256.mp4",
+        )
+        self.assertEqual(
+            server.build_output_file_name(r"C:\Camera\旅拍:夜景.JPG"),
+            "旅拍-夜景.mp4",
+        )
+
+    def test_ffmpeg_command_writes_source_metadata_into_mp4(self):
+        output = Path("outputs/test.mp4")
+        command = server.build_ffmpeg_command(
+            1920,
+            1080,
+            30,
+            output,
+            metadata={
+                "original_filename": "IMG_8256.HEIC",
+                "creation_time": "2026-11-15T12:00:00Z",
+            },
+        )
+        self.assertIn("+faststart+use_metadata_tags", command)
+        self.assertIn("original_filename=IMG_8256.HEIC", command)
+        self.assertIn("creation_time=2026-11-15T12:00:00Z", command)
+
 
 if __name__ == "__main__":
     unittest.main()
