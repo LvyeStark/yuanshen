@@ -43,6 +43,7 @@ assert.deepEqual(
 
 const opacityInputPosition = html.indexOf('id="overlayOpacityInput"');
 const emblemFlashInputPosition = html.indexOf('id="emblemFlashInput"');
+const emblemEffectSelectPosition = html.indexOf('id="emblemEffectSelect"');
 const panelOpacityInputPosition = html.indexOf('id="panelOpacityInput"');
 const emblemSelectPosition = html.indexOf('id="emblemPicker"');
 const exportButtonPosition = html.indexOf('id="exportButton"');
@@ -52,6 +53,7 @@ const motionModePosition = html.indexOf('name="motionMode"');
 
 assert.ok(opacityInputPosition >= 0, 'overlayOpacityInput should exist');
 assert.ok(emblemFlashInputPosition >= 0, 'emblem flash intensity should be adjustable');
+assert.ok(emblemEffectSelectPosition >= 0, 'emblem animation effect should be selectable');
 assert.ok(panelOpacityInputPosition >= 0, 'task and continuation panel opacity should be adjustable');
 assert.ok(emblemSelectPosition >= 0, 'emblemPicker should exist');
 assert.ok(exportButtonPosition >= 0, 'exportButton should exist');
@@ -78,12 +80,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=1.6"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=1.7"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=1.6"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=1.6"></script>'),
+  html.indexOf('<script src="js/script.js?v=1.7"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=1.7"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(
@@ -155,6 +157,20 @@ for (const motionMode of ['off', 'soft', 'full']) {
     `motion mode ${motionMode} should be available`
   );
 }
+
+for (const effectMode of ['auto', 'ceremony', 'smoke', 'starburst', 'halo', 'sweep', 'ripple', 'gather', 'twinkle']) {
+  assert.match(
+    html,
+    new RegExp(`<option value="${effectMode}"`, 'u'),
+    `emblem animation effect ${effectMode} should be available`
+  );
+}
+
+assert.match(
+  html,
+  /<option value="auto" selected>自动匹配徽记<\/option>/u,
+  'automatic emblem effect mapping should be selected by default'
+);
 
 assert.match(
   html,

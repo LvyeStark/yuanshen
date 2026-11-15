@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const {
   DEFAULTS,
   EMBLEM_KEYS,
+  EMBLEM_EFFECT_KEYS,
+  EMBLEM_EFFECT_BY_EMBLEM,
   OUTPUT_SIZES,
   PARTICLE_DEFAULTS,
   clampOpacity,
@@ -20,6 +22,8 @@ const {
   getCanvasSize,
   getCoverRect,
   normalizeEmblem,
+  normalizeEmblemEffect,
+  resolveEmblemEffect,
 } = require('../js/renderer-core.js');
 
 function test(name, fn) {
@@ -113,6 +117,7 @@ test('default render state matches requested overlay defaults', () => {
   assert.equal(DEFAULTS.emblem, 'mengdei');
   assert.equal(state.mode, '16:9');
   assert.equal(state.emblem, 'mengdei');
+  assert.equal(state.emblemEffect, 'auto');
   assert.equal(state.line1, '序章 第一幕 完成');
   assert.equal(state.line2, '捕风的异乡人');
   assert.equal(state.line3, '任务完成');
@@ -146,6 +151,24 @@ test('emblem normalization accepts supported values', () => {
   assert.equal(createRenderState({ emblem: 'nata' }).emblem, 'nata');
 });
 
+test('emblem animation presets include every selectable reference effect', () => {
+  assert.deepEqual(EMBLEM_EFFECT_KEYS, [
+    'auto',
+    'ceremony',
+    'smoke',
+    'starburst',
+    'halo',
+    'sweep',
+    'ripple',
+    'gather',
+    'twinkle',
+  ]);
+  assert.equal(resolveEmblemEffect('auto', 'mengdei'), EMBLEM_EFFECT_BY_EMBLEM.mengdei);
+  assert.equal(resolveEmblemEffect('auto', 'fengdan'), 'halo');
+  assert.equal(resolveEmblemEffect('ceremony', 'nata'), 'ceremony');
+  assert.equal(normalizeEmblemEffect('unknown'), 'auto');
+});
+
 test('unknown emblem values fall back to the default', () => {
   assert.equal(normalizeEmblem('unknown'), 'mengdei');
   assert.equal(createRenderState({ emblem: 'unknown' }).emblem, 'mengdei');
@@ -158,6 +181,7 @@ test('render state accepts editable lines and overlay overrides', () => {
     overlayColor: '#000000',
     overlayOpacity: 0.8,
     emblemFlashIntensity: 1.8,
+    emblemEffect: 'ripple',
     panelOpacity: 0.9,
     mode: 'source',
   });
@@ -168,6 +192,7 @@ test('render state accepts editable lines and overlay overrides', () => {
   assert.equal(state.overlayColor, '#000000');
   assert.equal(state.overlayOpacity, 0.8);
   assert.equal(state.emblemFlashIntensity, 1.8);
+  assert.equal(state.emblemEffect, 'ripple');
   assert.equal(state.panelOpacity, 0.9);
   assert.equal(state.mode, 'source');
 });
@@ -238,6 +263,9 @@ test('animated overlay starts hidden and ends matching the still layout', () => 
   assert.equal(start.emblemFlash, 0);
   assert.equal(start.emblemRingProgress, 0);
   assert.equal(start.emblemRingAlpha, 0);
+  assert.equal(start.emblemEffectAlpha, 0);
+  assert.equal(start.emblemSweepAlpha, 0);
+  assert.equal(start.emblemBurstAlpha, 0);
   assert.equal(start.emblemSparkProgress, 0);
   assert.equal(start.emblemSparkAlpha, 0);
   assert.equal(start.line1Alpha, 0);
@@ -252,6 +280,12 @@ test('animated overlay starts hidden and ends matching the still layout', () => 
   assert.equal(end.emblemFlash, 0);
   assert.equal(end.emblemRingProgress, 1);
   assert.equal(end.emblemRingAlpha, 0);
+  assert.equal(end.emblemEffectProgress, 1);
+  assert.equal(end.emblemEffectAlpha, 0);
+  assert.equal(end.emblemSweepProgress, 1);
+  assert.equal(end.emblemSweepAlpha, 0);
+  assert.equal(end.emblemBurstProgress, 1);
+  assert.equal(end.emblemBurstAlpha, 0);
   assert.equal(end.emblemSparkProgress, 1);
   assert.equal(end.emblemSparkAlpha, 0);
   assert.equal(end.line1Alpha, 1);
@@ -272,6 +306,16 @@ test('emblem entrance combines a smoke ring, rebound, flash, and outward sparkle
   assert.ok(getAnimatedOverlayState(0.45).emblemSparkProgress > 0.9);
   assert.ok(getAnimatedOverlayState(0.45).emblemSparkAlpha > 0.8);
   assert.ok(getAnimatedOverlayState(0.26).emblemScale > 1);
+});
+
+test('reference effect timelines remain active during the emblem reveal and settle cleanly', () => {
+  const reveal = getAnimatedOverlayState(0.36);
+  assert.ok(reveal.emblemEffectProgress > 0.4);
+  assert.ok(reveal.emblemEffectAlpha > 0.75);
+  assert.ok(reveal.emblemSweepProgress > 0.25);
+  assert.ok(reveal.emblemSweepAlpha > 0.7);
+  assert.ok(reveal.emblemBurstProgress > 0.45);
+  assert.ok(reveal.emblemBurstAlpha > 0.7);
 });
 
 test('particle state is deterministic for the same seed and timeline position', () => {

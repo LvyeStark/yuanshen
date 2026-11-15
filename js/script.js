@@ -27,6 +27,7 @@
   const opacityValue = document.getElementById('opacityValue');
   const emblemFlashInput = document.getElementById('emblemFlashInput');
   const emblemFlashValue = document.getElementById('emblemFlashValue');
+  const emblemEffectSelect = document.getElementById('emblemEffectSelect');
   const panelOpacityInput = document.getElementById('panelOpacityInput');
   const panelOpacityValue = document.getElementById('panelOpacityValue');
   const emblemPicker = document.getElementById('emblemPicker');
@@ -113,6 +114,10 @@
     return Object.hasOwn(MOTION_PRESETS, requested) ? requested : 'soft';
   }
 
+  function currentEmblemEffect() {
+    return normalizeEmblemEffect(emblemEffectSelect?.value || DEFAULTS.emblemEffect);
+  }
+
   function getSelectedEmblem() {
     return emblemPicker.querySelector('input[name="emblem"]:checked')?.value || DEFAULTS.emblem;
   }
@@ -138,6 +143,7 @@
     return createRenderState({
       mode: currentMode(),
       emblem: getSelectedEmblem(),
+      emblemEffect: currentEmblemEffect(),
       line1: line1Input.value.trim() || DEFAULTS.line1,
       line2: line2Input.value.trim() || DEFAULTS.line2,
       overlayColor: overlayColorInput.value,
@@ -346,15 +352,65 @@
       scale,
     } = layout;
 
+    const emblemEffect = resolveEmblemEffect(state.emblemEffect, state.emblem);
     const emblemEffectStrength = Math.max(0, state.emblemFlashIntensity);
+    const compositeStrength = emblemEffect === 'ceremony' ? 0.58 : 1;
+    const effectStrength = emblemEffectStrength * compositeStrength * animation.emblemAlpha;
     const emblemFlash = animation.emblemFlash * emblemEffectStrength;
-    drawEmblemSmokeRing(
-      cx,
-      emblemY,
-      emblemSize,
-      animation.emblemRingProgress,
-      animation.emblemRingAlpha * emblemEffectStrength * animation.emblemAlpha
-    );
+    if (emblemEffect === 'smoke' || emblemEffect === 'ceremony') {
+      drawEmblemSmokeRing(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemRingProgress,
+        animation.emblemRingAlpha * effectStrength
+      );
+    }
+    if (emblemEffect === 'ripple' || emblemEffect === 'ceremony') {
+      drawEmblemRipples(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemEffectProgress,
+        animation.emblemEffectAlpha * effectStrength
+      );
+    }
+    if (emblemEffect === 'halo' || emblemEffect === 'ceremony') {
+      drawEmblemHalo(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemEffectProgress,
+        animation.emblemEffectAlpha * effectStrength
+      );
+    }
+    if (emblemEffect === 'gather' || emblemEffect === 'ceremony') {
+      drawEmblemGatherParticles(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemBurstProgress,
+        animation.emblemBurstAlpha * effectStrength
+      );
+    }
+    if (emblemEffect === 'starburst' || emblemEffect === 'ceremony') {
+      drawEmblemRadialBurst(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemBurstProgress,
+        animation.emblemBurstAlpha * effectStrength
+      );
+    }
+    if (emblemEffect === 'twinkle' || emblemEffect === 'ceremony') {
+      drawEmblemOrbitingTwinkles(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemEffectProgress,
+        animation.emblemEffectAlpha * effectStrength
+      );
+    }
     drawEmblemGlow(
       cx,
       emblemY,
@@ -370,14 +426,26 @@
       animation.emblemAlpha,
       emblemFlash
     );
+    if (emblemEffect === 'sweep' || emblemEffect === 'ceremony') {
+      drawEmblemSweep(
+        emblems[state.emblem],
+        cx,
+        emblemY,
+        emblemSize * 1.16 * animation.emblemScale,
+        animation.emblemSweepProgress,
+        animation.emblemSweepAlpha * effectStrength
+      );
+    }
     drawEmblemFlash(cx, emblemY, emblemSize * animation.emblemScale, emblemFlash * animation.emblemAlpha);
-    drawEmblemSparkles(
-      cx,
-      emblemY,
-      emblemSize,
-      animation.emblemSparkProgress,
-      animation.emblemSparkAlpha * emblemEffectStrength * animation.emblemAlpha
-    );
+    if (emblemEffect === 'smoke' || emblemEffect === 'starburst' || emblemEffect === 'twinkle' || emblemEffect === 'ceremony') {
+      drawEmblemSparkles(
+        cx,
+        emblemY,
+        emblemSize,
+        animation.emblemSparkProgress,
+        animation.emblemSparkAlpha * effectStrength
+      );
+    }
     drawTextLine(
       state.line1,
       cx,
@@ -467,6 +535,188 @@
       ctx.arc(cloudX, cloudY, cloudRadius, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  function drawEmblemRipples(cx, cy, size, progress, strength) {
+    if (progress <= 0 || strength <= 0) {
+      return;
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.lineWidth = Math.max(1, size * 0.012);
+    for (let index = 0; index < 3; index += 1) {
+      const phase = clampProgress(progress * 1.34 - index * 0.19);
+      if (phase <= 0 || phase >= 1) {
+        continue;
+      }
+      const radius = size * (0.3 + phase * 0.78);
+      ctx.globalAlpha = Math.min(1, strength) * Math.pow(1 - phase, 1.35) * (0.72 - index * 0.1);
+      ctx.strokeStyle = index === 1 ? '#fff0bd' : '#d8a852';
+      ctx.shadowColor = 'rgba(235, 181, 81, 0.72)';
+      ctx.shadowBlur = Math.max(3, size * 0.045);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, radius, radius * (0.82 + index * 0.025), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEmblemHalo(cx, cy, size, progress, strength) {
+    if (progress <= 0 || strength <= 0) {
+      return;
+    }
+    const eased = clampProgress(progress);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(255, 221, 137, 0.7)';
+    ctx.shadowBlur = Math.max(4, size * 0.05);
+    for (let index = 0; index < 2; index += 1) {
+      const radius = size * (0.58 + index * 0.17);
+      const rotation = (index === 0 ? 1 : -1) * eased * Math.PI * 1.65 + index * 0.7;
+      ctx.globalAlpha = Math.min(1, strength) * (0.82 - index * 0.2);
+      ctx.strokeStyle = index === 0 ? '#ffe8ac' : '#c9913f';
+      ctx.lineWidth = Math.max(1.1, size * (0.014 - index * 0.003));
+      ctx.setLineDash([size * (0.2 - index * 0.035), size * (0.11 + index * 0.03)]);
+      ctx.lineDashOffset = -eased * size * (1.9 + index * 0.5);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, radius, radius * 0.78, rotation * 0.08, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  function drawEmblemRadialBurst(cx, cy, size, progress, strength) {
+    if (progress <= 0 || strength <= 0) {
+      return;
+    }
+    const eased = clampProgress(progress);
+    const rayCount = 16;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(255, 229, 166, 0.78)';
+    ctx.shadowBlur = Math.max(3, size * 0.032);
+    for (let index = 0; index < rayCount; index += 1) {
+      const angle = (index / rayCount) * Math.PI * 2 + eased * 0.16;
+      const longRay = index % 4 === 0;
+      const inner = size * (0.48 + eased * 0.08);
+      const outer = size * ((longRay ? 1.06 : 0.82) + eased * (longRay ? 0.32 : 0.2));
+      ctx.globalAlpha = Math.min(1, strength) * (longRay ? 0.72 : 0.34) * (1 - eased * 0.32);
+      ctx.strokeStyle = longRay ? '#fff4cc' : '#d6a24b';
+      ctx.lineWidth = Math.max(1, size * (longRay ? 0.012 : 0.006));
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(angle) * inner, cy + Math.sin(angle) * inner * 0.86);
+      ctx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer * 0.86);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEmblemGatherParticles(cx, cy, size, progress, strength) {
+    if (progress <= 0 || strength <= 0) {
+      return;
+    }
+    const eased = clampProgress(progress);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.shadowColor = 'rgba(255, 217, 132, 0.8)';
+    ctx.shadowBlur = Math.max(3, size * 0.04);
+    for (let index = 0; index < 18; index += 1) {
+      const angle = index * 2.399963229728653 + 0.42;
+      const startDistance = size * (1.15 + (index % 5) * 0.12);
+      const endDistance = size * (0.42 + (index % 3) * 0.045);
+      const distance = startDistance + (endDistance - startDistance) * eased;
+      const spiral = angle + (1 - eased) * (index % 2 === 0 ? 0.58 : -0.58);
+      const x = cx + Math.cos(spiral) * distance;
+      const y = cy + Math.sin(spiral) * distance * 0.75;
+      const particleSize = size * (0.012 + (index % 4) * 0.005) * (0.7 + eased * 0.55);
+      ctx.globalAlpha = Math.min(1, strength) * (0.45 + (index % 4) * 0.1);
+      drawFilledDiamond(x, y, particleSize, index % 5 === 0 ? '#fff3c7' : '#d5a24d');
+    }
+    ctx.restore();
+  }
+
+  function drawEmblemOrbitingTwinkles(cx, cy, size, progress, strength) {
+    if (progress <= 0 || strength <= 0) {
+      return;
+    }
+    const eased = clampProgress(progress);
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.shadowColor = 'rgba(255, 235, 184, 0.9)';
+    ctx.shadowBlur = Math.max(3, size * 0.045);
+    for (let index = 0; index < 12; index += 1) {
+      const angle = (index / 12) * Math.PI * 2 + eased * Math.PI * 1.45;
+      const orbit = size * (0.64 + (index % 3) * 0.12);
+      const x = cx + Math.cos(angle) * orbit;
+      const y = cy + Math.sin(angle) * orbit * 0.68;
+      const flicker = 0.42 + Math.pow(Math.sin((eased * 5.5 + index * 0.73) * Math.PI), 2) * 0.58;
+      ctx.globalAlpha = Math.min(1, strength) * flicker;
+      const sparkleSize = size * (0.012 + (index % 4) * 0.006);
+      drawFourPointStar(x, y, sparkleSize, index % 3 === 0 ? '#fff8dc' : '#dfb35c');
+    }
+    ctx.restore();
+  }
+
+  function drawFourPointStar(cx, cy, size, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - size * 1.9);
+    ctx.lineTo(cx + size * 0.34, cy - size * 0.34);
+    ctx.lineTo(cx + size * 1.9, cy);
+    ctx.lineTo(cx + size * 0.34, cy + size * 0.34);
+    ctx.lineTo(cx, cy + size * 1.9);
+    ctx.lineTo(cx - size * 0.34, cy + size * 0.34);
+    ctx.lineTo(cx - size * 1.9, cy);
+    ctx.lineTo(cx - size * 0.34, cy - size * 0.34);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawEmblemSweep(asset, cx, cy, height, progress, strength) {
+    if (!asset || progress <= 0 || strength <= 0) {
+      return;
+    }
+    const metrics = getAssetDrawMetrics(asset, cx, cy, null, height);
+    if (!metrics) {
+      return;
+    }
+    const padding = Math.max(12, Math.max(metrics.drawWidth, metrics.drawHeight) * 0.08);
+    const layer = document.createElement('canvas');
+    layer.width = Math.ceil(metrics.drawWidth + padding * 2);
+    layer.height = Math.ceil(metrics.drawHeight + padding * 2);
+    const layerCtx = layer.getContext('2d');
+    layerCtx.drawImage(
+      metrics.source,
+      metrics.bounds.x,
+      metrics.bounds.y,
+      metrics.bounds.width,
+      metrics.bounds.height,
+      padding,
+      padding,
+      metrics.drawWidth,
+      metrics.drawHeight
+    );
+    layerCtx.globalCompositeOperation = 'source-in';
+    const bandWidth = layer.width * 0.34;
+    const bandX = -bandWidth + (layer.width + bandWidth * 2) * clampProgress(progress);
+    const sweep = layerCtx.createLinearGradient(bandX - bandWidth, layer.height, bandX + bandWidth, 0);
+    sweep.addColorStop(0, 'rgba(255, 236, 178, 0)');
+    sweep.addColorStop(0.38, 'rgba(255, 245, 213, 0.18)');
+    sweep.addColorStop(0.5, 'rgba(255, 255, 247, 1)');
+    sweep.addColorStop(0.62, 'rgba(255, 225, 146, 0.34)');
+    sweep.addColorStop(1, 'rgba(255, 211, 111, 0)');
+    layerCtx.fillStyle = sweep;
+    layerCtx.fillRect(0, 0, layer.width, layer.height);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = Math.min(1, strength);
+    ctx.filter = `brightness(1.4) blur(${Math.max(0.5, height * 0.006)}px)`;
+    ctx.drawImage(layer, cx - layer.width / 2, cy - layer.height / 2);
     ctx.restore();
   }
 
@@ -1611,6 +1861,9 @@
       const requestedEmblem = params.get('emblem');
       setSelectedEmblem(normalizeEmblem(requestedEmblem));
     }
+    if (params.has('emblemEffect') && emblemEffectSelect) {
+      emblemEffectSelect.value = normalizeEmblemEffect(params.get('emblemEffect'));
+    }
     if (params.has('motionMode')) {
       const requestedMotion = params.get('motionMode');
       if (Object.hasOwn(MOTION_PRESETS, requestedMotion)) {
@@ -1655,7 +1908,11 @@
       overlayOpacityInput,
       emblemFlashInput,
       panelOpacityInput,
+      emblemEffectSelect,
     ].forEach((control) => {
+      if (!control) {
+        return;
+      }
       control.addEventListener('input', () => {
         stopAnimationPreview({ renderFinal: false });
         updateEffectValueLabels();

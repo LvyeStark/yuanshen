@@ -14,9 +14,38 @@ const EMBLEM_KEYS = Object.freeze([
   'huanxiangzhenjinjushi',
 ]);
 
+const EMBLEM_EFFECT_KEYS = Object.freeze([
+  'auto',
+  'ceremony',
+  'smoke',
+  'starburst',
+  'halo',
+  'sweep',
+  'ripple',
+  'gather',
+  'twinkle',
+]);
+
+const EMBLEM_EFFECT_BY_EMBLEM = Object.freeze({
+  mengdei: 'gather',
+  liyue: 'starburst',
+  daoqi: 'sweep',
+  xuni: 'ripple',
+  fengdan: 'halo',
+  nata: 'smoke',
+  nuodekalai: 'twinkle',
+  zhidong: 'starburst',
+  dachishahai: 'ripple',
+  chenyugu: 'gather',
+  youyoudujiacun: 'twinkle',
+  kongzhishendian: 'halo',
+  huanxiangzhenjinjushi: 'sweep',
+});
+
 const DEFAULTS = {
   mode: '16:9',
   emblem: 'mengdei',
+  emblemEffect: 'auto',
   outputWidth: 1920,
   outputHeight: 1080,
   line1: '序章 第一幕 完成',
@@ -150,6 +179,12 @@ function getAnimatedOverlayState(progress) {
     emblemRingAlpha: pulseProgress(clamped, 0.03, 0.58),
     emblemSparkProgress: easeOutCubic(rangeProgress(clamped, 0.18, 0.6)),
     emblemSparkAlpha: pulseProgress(clamped, 0.15, 0.68),
+    emblemEffectProgress: easeInOutCubic(rangeProgress(clamped, 0.04, 0.64)),
+    emblemEffectAlpha: pulseProgress(clamped, 0.025, 0.72),
+    emblemSweepProgress: easeInOutCubic(rangeProgress(clamped, 0.12, 0.58)),
+    emblemSweepAlpha: pulseProgress(clamped, 0.09, 0.66),
+    emblemBurstProgress: easeOutCubic(rangeProgress(clamped, 0.16, 0.66)),
+    emblemBurstAlpha: pulseProgress(clamped, 0.12, 0.74),
     line1Alpha: easeOutCubic(rangeProgress(clamped, 0.28, 0.56)),
     line1OffsetY: (1 - easeOutCubic(rangeProgress(clamped, 0.28, 0.56))) * 16,
     line2Alpha: easeOutCubic(rangeProgress(clamped, 0.38, 0.66)),
@@ -385,6 +420,18 @@ function normalizeEmblem(value) {
   return EMBLEM_KEYS.includes(value) ? value : DEFAULTS.emblem;
 }
 
+function normalizeEmblemEffect(value) {
+  return EMBLEM_EFFECT_KEYS.includes(value) ? value : DEFAULTS.emblemEffect;
+}
+
+function resolveEmblemEffect(value, emblem) {
+  const effect = normalizeEmblemEffect(value);
+  if (effect !== 'auto') {
+    return effect;
+  }
+  return EMBLEM_EFFECT_BY_EMBLEM[normalizeEmblem(emblem)] || 'smoke';
+}
+
 function getMediaDimensions(media) {
   if (media?.videoWidth > 0 && media?.videoHeight > 0) {
     return {
@@ -428,6 +475,7 @@ function createRenderState(overrides = {}) {
   return {
     mode: overrides.mode || DEFAULTS.mode,
     emblem: normalizeEmblem(overrides.emblem),
+    emblemEffect: normalizeEmblemEffect(overrides.emblemEffect),
     line1: overrides.line1 ?? DEFAULTS.line1,
     line2: overrides.line2 ?? DEFAULTS.line2,
     line3: DEFAULTS.line3,
@@ -478,6 +526,8 @@ if (typeof module !== 'undefined') {
   module.exports = {
     DEFAULTS,
     EMBLEM_KEYS,
+    EMBLEM_EFFECT_KEYS,
+    EMBLEM_EFFECT_BY_EMBLEM,
     OUTPUT_SIZES,
     PARTICLE_DEFAULTS,
     clampOpacity,
@@ -496,5 +546,7 @@ if (typeof module !== 'undefined') {
     getCanvasSize,
     getCoverRect,
     normalizeEmblem,
+    normalizeEmblemEffect,
+    resolveEmblemEffect,
   };
 }

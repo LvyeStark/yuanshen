@@ -98,8 +98,24 @@
                 <input id="panelOpacityInput" type="range" min="0" max="1" step="0.01" value="0.72">
               </label>
             </div>
-            <small>徽记会依次出现烟雾金环、回弹显形、星芒外射；金色底带同时作用于“任务完成”和“未完待续”。</small>
+            <small>光效强度会同时控制所选徽记动画的光晕、星芒与粒子；金色底带同时作用于“任务完成”和“未完待续”。</small>
           </fieldset>
+
+          <label class="field">
+            <span>徽记动画效果</span>
+            <select id="emblemEffectSelect">
+              <option value="auto" selected>自动匹配徽记</option>
+              <option value="ceremony">全效果仪式</option>
+              <option value="smoke">烟环绽放</option>
+              <option value="starburst">十字星芒</option>
+              <option value="halo">双环光轮</option>
+              <option value="sweep">斜向流光</option>
+              <option value="ripple">金色涟漪</option>
+              <option value="gather">粒子汇聚</option>
+              <option value="twinkle">环绕星屑</option>
+            </select>
+            <small>参考图集拆分为七种动态光效；“自动匹配”会按所选地区徽记切换，“全效果仪式”会组合全部层次。</small>
+          </label>
 
           <fieldset class="field radio-group emblem-field">
             <legend>任务徽记</legend>
@@ -249,8 +265,8 @@
       </section>
     </main>
 
-    <script src="js/renderer-core.js?v=1.6"></script>
-    <script src="js/script.js?v=1.6"></script>
-    <script src="js/editor-particles.js?v=1.6"></script>
+    <script src="js/renderer-core.js?v=1.7"></script>
+    <script src="js/script.js?v=1.7"></script>
+    <script src="js/editor-particles.js?v=1.7"></script>
   </body>
 </html>
