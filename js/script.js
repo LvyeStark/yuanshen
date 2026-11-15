@@ -237,7 +237,7 @@
       minCount: count,
       maxCount: count,
     });
-    const reveal = Math.min(1, animation.progress / 0.92);
+    const reveal = Math.min(1, animation.progress / 0.96);
     const revealEase = 1 - Math.pow(1 - reveal, 3);
     const centerX = width * 0.5;
     const centerY = height * 0.31;
@@ -275,7 +275,7 @@
   }
 
   function drawParticleStreaks(particleState, width, height, progress, preset, scale) {
-    const streakProgress = clampProgress((progress - 0.08) / 0.62);
+    const streakProgress = clampProgress((progress - 0.08) / 0.68);
     const streakAlpha = Math.sin(streakProgress * Math.PI) * preset.strength;
     if (streakAlpha <= 0.002) {
       return;
@@ -302,7 +302,7 @@
   }
 
   function drawDividerGlint(width, height, progress, strength, scale) {
-    const glintProgress = clampProgress((progress - 0.56) / 0.3);
+    const glintProgress = clampProgress((progress - 0.58) / 0.32);
     if (glintProgress <= 0 || glintProgress >= 1) {
       return;
     }

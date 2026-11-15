@@ -62,7 +62,7 @@ const OVERLAY_DESIGN = Object.freeze({
 });
 
 const VIDEO_EXPORT_SETTINGS = Object.freeze({
-  durationMs: 3200,
+  durationMs: 3000,
   fps: 30,
   bitrate: 8_000_000,
   maxBitrate: 48_000_000,
@@ -109,6 +109,13 @@ function easeOutCubic(value) {
   return 1 - Math.pow(1 - progress, 3);
 }
 
+function easeInOutCubic(value) {
+  const progress = clampProgress(value);
+  return progress < 0.5
+    ? 4 * Math.pow(progress, 3)
+    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+}
+
 function easeOutBack(value) {
   const progress = clampProgress(value);
   const c1 = 1.70158;
@@ -148,8 +155,8 @@ function getAnimatedOverlayState(progress) {
     line2Alpha: easeOutCubic(rangeProgress(clamped, 0.38, 0.66)),
     line2Scale: 0.94 + easeOutBack(rangeProgress(clamped, 0.38, 0.66)) * 0.06,
     dividerProgress: easeOutCubic(rangeProgress(clamped, 0.48, 0.72)),
-    taskBandProgress: easeOutCubic(rangeProgress(clamped, 0.68, 0.86)),
-    continuationAlpha: easeOutCubic(rangeProgress(clamped, 0.82, 0.96)),
+    taskBandProgress: easeInOutCubic(rangeProgress(clamped, 0.68, 0.88)),
+    continuationAlpha: easeInOutCubic(rangeProgress(clamped, 0.82, 0.99)),
   };
 }
 

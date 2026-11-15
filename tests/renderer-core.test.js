@@ -185,9 +185,9 @@ test('animation progress is clamped between 0 and 1', () => {
   assert.equal(clampProgress(Number.NaN), 0);
 });
 
-test('video export settings use a short shareable 1080p timeline', () => {
+test('video export settings use an exact three-second Live Photo timeline', () => {
   assert.deepEqual(getVideoExportSettings(), {
-    durationMs: 3200,
+    durationMs: 3000,
     fps: 30,
     bitrate: 8_000_000,
     maxBitrate: 48_000_000,
@@ -222,9 +222,9 @@ test('animated overlay stages its elements across almost the full video timeline
   assert.equal(at1600ms.taskBandProgress, 0);
   assert.equal(at1600ms.continuationAlpha, 0);
 
-  const at2500ms = getAnimatedOverlayState(2500 / settings.durationMs);
-  assert.ok(at2500ms.taskBandProgress > 0.9);
-  assert.equal(at2500ms.continuationAlpha, 0);
+  const at2400ms = getAnimatedOverlayState(2400 / settings.durationMs);
+  assert.ok(at2400ms.taskBandProgress > 0.7);
+  assert.equal(at2400ms.continuationAlpha, 0);
 
   const at3000ms = getAnimatedOverlayState(3000 / settings.durationMs);
   assert.equal(at3000ms.taskBandProgress, 1);
@@ -354,23 +354,28 @@ test('task complete and continuation occupy the final second of the animation', 
   assert.equal(beforeTask.taskBandProgress, 0);
   assert.equal(beforeTask.continuationAlpha, 0);
 
-  const taskVisible = getAnimatedOverlayState(2600 / settings.durationMs);
-  assert.ok(taskVisible.taskBandProgress > 0.95);
+  const taskVisible = getAnimatedOverlayState(2400 / settings.durationMs);
+  assert.ok(taskVisible.taskBandProgress > 0.7);
   assert.equal(taskVisible.continuationAlpha, 0);
 
-  const nearEnd = getAnimatedOverlayState(3000 / settings.durationMs);
+  const continuationVisible = getAnimatedOverlayState(2800 / settings.durationMs);
+  assert.equal(continuationVisible.taskBandProgress, 1);
+  assert.ok(continuationVisible.continuationAlpha > 0.8);
+  assert.ok(continuationVisible.continuationAlpha < 0.9);
+
+  const nearEnd = getAnimatedOverlayState(2970 / settings.durationMs);
   assert.equal(nearEnd.overlayAlpha, 1);
   assert.equal(nearEnd.emblemAlpha, 1);
   assert.equal(nearEnd.line2Alpha, 1);
   assert.equal(nearEnd.dividerProgress, 1);
   assert.equal(nearEnd.taskBandProgress, 1);
-  assert.ok(nearEnd.continuationAlpha > 0.99);
+  assert.equal(nearEnd.continuationAlpha, 1);
 });
 
 test('image exports animate from the beginning while video exports animate at the end', () => {
   const settings = getVideoExportSettings();
   assert.equal(getTimelineProgress(0, settings.durationMs, 'image'), 0);
-  assert.equal(getTimelineProgress(1600, settings.durationMs, 'image'), 0.5);
+  assert.equal(getTimelineProgress(1500, settings.durationMs, 'image'), 0.5);
   assert.equal(getTimelineProgress(0, 10_000, 'video'), 0);
   assert.equal(getTimelineProgress(6000, 10_000, 'video'), 0);
   assert.ok(getTimelineProgress(7200, 10_000, 'video') > 0);
