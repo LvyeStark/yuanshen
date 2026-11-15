@@ -28,6 +28,7 @@
   const emblemFlashInput = document.getElementById('emblemFlashInput');
   const emblemFlashValue = document.getElementById('emblemFlashValue');
   const emblemEffectSelect = document.getElementById('emblemEffectSelect');
+  const emblemEntranceSelect = document.getElementById('emblemEntranceSelect');
   const panelOpacityInput = document.getElementById('panelOpacityInput');
   const panelOpacityValue = document.getElementById('panelOpacityValue');
   const emblemPicker = document.getElementById('emblemPicker');
@@ -118,6 +119,10 @@
     return normalizeEmblemEffect(emblemEffectSelect?.value || DEFAULTS.emblemEffect);
   }
 
+  function currentEmblemEntrance() {
+    return normalizeEmblemEntrance(emblemEntranceSelect?.value || DEFAULTS.emblemEntrance);
+  }
+
   function getSelectedEmblem() {
     return emblemPicker.querySelector('input[name="emblem"]:checked')?.value || DEFAULTS.emblem;
   }
@@ -144,6 +149,7 @@
       mode: currentMode(),
       emblem: getSelectedEmblem(),
       emblemEffect: currentEmblemEffect(),
+      emblemEntrance: currentEmblemEntrance(),
       line1: line1Input.value.trim() || DEFAULTS.line1,
       line2: line2Input.value.trim() || DEFAULTS.line2,
       overlayColor: overlayColorInput.value,
@@ -353,95 +359,111 @@
     } = layout;
 
     const emblemEffect = resolveEmblemEffect(state.emblemEffect, state.emblem);
+    const emblemMotion = getEmblemMotionState(animation.progress, state.emblemEntrance, state.emblem);
+    const animatedEmblemX = cx + emblemMotion.offsetX * scale;
+    const animatedEmblemY = emblemY + emblemMotion.offsetY * scale;
+    const animatedEmblemSize = emblemSize * emblemMotion.scale;
+    const emblemTransform = {
+      rotation: emblemMotion.rotation,
+      scaleX: emblemMotion.scaleX,
+      scaleY: emblemMotion.scaleY,
+    };
     const emblemEffectStrength = Math.max(0, state.emblemFlashIntensity);
     const compositeStrength = emblemEffect === 'ceremony' ? 0.58 : 1;
     const effectStrength = emblemEffectStrength * compositeStrength * animation.emblemAlpha;
     const emblemFlash = animation.emblemFlash * emblemEffectStrength;
     if (emblemEffect === 'smoke' || emblemEffect === 'ceremony') {
       drawEmblemSmokeRing(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemRingProgress,
         animation.emblemRingAlpha * effectStrength
       );
     }
     if (emblemEffect === 'ripple' || emblemEffect === 'ceremony') {
       drawEmblemRipples(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemEffectProgress,
         animation.emblemEffectAlpha * effectStrength
       );
     }
     if (emblemEffect === 'halo' || emblemEffect === 'ceremony') {
       drawEmblemHalo(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemEffectProgress,
         animation.emblemEffectAlpha * effectStrength
       );
     }
     if (emblemEffect === 'gather' || emblemEffect === 'ceremony') {
       drawEmblemGatherParticles(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemBurstProgress,
         animation.emblemBurstAlpha * effectStrength
       );
     }
     if (emblemEffect === 'starburst' || emblemEffect === 'ceremony') {
       drawEmblemRadialBurst(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemBurstProgress,
         animation.emblemBurstAlpha * effectStrength
       );
     }
     if (emblemEffect === 'twinkle' || emblemEffect === 'ceremony') {
       drawEmblemOrbitingTwinkles(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemEffectProgress,
         animation.emblemEffectAlpha * effectStrength
       );
     }
     drawEmblemGlow(
-      cx,
-      emblemY,
-      emblemSize * animation.emblemScale,
+      animatedEmblemX,
+      animatedEmblemY,
+      animatedEmblemSize,
       animation.emblemAlpha,
       emblemFlash
     );
     drawLuminousEmblem(
       emblems[state.emblem],
-      cx,
-      emblemY,
-      emblemSize * 1.16 * animation.emblemScale,
+      animatedEmblemX,
+      animatedEmblemY,
+      animatedEmblemSize * 1.16,
       animation.emblemAlpha,
-      emblemFlash
+      emblemFlash,
+      emblemTransform
     );
     if (emblemEffect === 'sweep' || emblemEffect === 'ceremony') {
       drawEmblemSweep(
         emblems[state.emblem],
-        cx,
-        emblemY,
-        emblemSize * 1.16 * animation.emblemScale,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize * 1.16,
         animation.emblemSweepProgress,
-        animation.emblemSweepAlpha * effectStrength
+        animation.emblemSweepAlpha * effectStrength,
+        emblemTransform
       );
     }
-    drawEmblemFlash(cx, emblemY, emblemSize * animation.emblemScale, emblemFlash * animation.emblemAlpha);
+    drawEmblemFlash(
+      animatedEmblemX,
+      animatedEmblemY,
+      animatedEmblemSize,
+      emblemFlash * animation.emblemAlpha
+    );
     if (emblemEffect === 'smoke' || emblemEffect === 'starburst' || emblemEffect === 'twinkle' || emblemEffect === 'ceremony') {
       drawEmblemSparkles(
-        cx,
-        emblemY,
-        emblemSize,
+        animatedEmblemX,
+        animatedEmblemY,
+        animatedEmblemSize,
         animation.emblemSparkProgress,
         animation.emblemSparkAlpha * effectStrength
       );
@@ -676,7 +698,7 @@
     ctx.fill();
   }
 
-  function drawEmblemSweep(asset, cx, cy, height, progress, strength) {
+  function drawEmblemSweep(asset, cx, cy, height, progress, strength, transform = {}) {
     if (!asset || progress <= 0 || strength <= 0) {
       return;
     }
@@ -716,7 +738,7 @@
     ctx.globalCompositeOperation = 'screen';
     ctx.globalAlpha = Math.min(1, strength);
     ctx.filter = `brightness(1.4) blur(${Math.max(0.5, height * 0.006)}px)`;
-    ctx.drawImage(layer, cx - layer.width / 2, cy - layer.height / 2);
+    drawEmblemLayer(layer, cx, cy, transform);
     ctx.restore();
   }
 
@@ -735,15 +757,35 @@
     ctx.restore();
   }
 
-  function drawLuminousEmblem(asset, cx, cy, height, alpha = 1, flash = 0) {
+  function drawEmblemLayer(layer, cx, cy, transform = {}) {
+    ctx.translate(cx, cy);
+    if (transform.rotation) {
+      ctx.rotate(transform.rotation);
+    }
+    const scaleX = Number.isFinite(transform.scaleX) ? transform.scaleX : 1;
+    const scaleY = Number.isFinite(transform.scaleY) ? transform.scaleY : 1;
+    ctx.scale(scaleX, scaleY);
+    ctx.drawImage(layer, -layer.width / 2, -layer.height / 2);
+  }
+
+  function drawLuminousEmblem(asset, cx, cy, height, alpha = 1, flash = 0, transform = {}) {
     if (!asset) {
       return;
     }
-    drawEmblemBacklight(asset, cx, cy, null, height, alpha, flash);
-    drawGoldEmblemMask(asset, cx, cy, null, height, alpha, flash);
+    drawEmblemBacklight(asset, cx, cy, null, height, alpha, flash, transform);
+    drawGoldEmblemMask(asset, cx, cy, null, height, alpha, flash, transform);
   }
 
-  function drawEmblemBacklight(asset, cx, cy, targetWidth, targetHeight, alpha = 1, flash = 0) {
+  function drawEmblemBacklight(
+    asset,
+    cx,
+    cy,
+    targetWidth,
+    targetHeight,
+    alpha = 1,
+    flash = 0,
+    transform = {}
+  ) {
     const metrics = getAssetDrawMetrics(asset, cx, cy, targetWidth, targetHeight);
     const layer = createEmblemMaskLayer(metrics, [
       [0, 'rgba(255, 239, 198, 0.78)'],
@@ -758,11 +800,20 @@
     ctx.globalAlpha = Math.min(1, (0.78 + flash * 0.22) * alpha);
     ctx.filter = `blur(${4 + Math.min(2, flash) * 8}px)`;
     ctx.globalCompositeOperation = 'screen';
-    ctx.drawImage(layer.canvas, cx - layer.width / 2, cy - layer.height / 2);
+    drawEmblemLayer(layer.canvas, cx, cy, transform);
     ctx.restore();
   }
 
-  function drawGoldEmblemMask(asset, cx, cy, targetWidth, targetHeight, alpha = 1, flash = 0) {
+  function drawGoldEmblemMask(
+    asset,
+    cx,
+    cy,
+    targetWidth,
+    targetHeight,
+    alpha = 1,
+    flash = 0,
+    transform = {}
+  ) {
     const metrics = getAssetDrawMetrics(asset, cx, cy, targetWidth, targetHeight);
     const layer = createEmblemMaskLayer(metrics, [
       [0, '#FFF2C8'],
@@ -778,7 +829,7 @@
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.filter = 'drop-shadow(0 0 10px rgba(201, 169, 110, 0.6))';
-    ctx.drawImage(layer.canvas, cx - layer.width / 2, cy - layer.height / 2);
+    drawEmblemLayer(layer.canvas, cx, cy, transform);
     ctx.restore();
 
     if (flash > 0) {
@@ -786,7 +837,7 @@
       ctx.globalAlpha = Math.min(0.82, flash * 0.56) * alpha;
       ctx.globalCompositeOperation = 'screen';
       ctx.filter = `brightness(${1.25 + Math.min(2, flash) * 0.6}) blur(${Math.min(4, flash * 2)}px)`;
-      ctx.drawImage(layer.canvas, cx - layer.width / 2, cy - layer.height / 2);
+      drawEmblemLayer(layer.canvas, cx, cy, transform);
       ctx.restore();
     }
   }
@@ -1864,6 +1915,9 @@
     if (params.has('emblemEffect') && emblemEffectSelect) {
       emblemEffectSelect.value = normalizeEmblemEffect(params.get('emblemEffect'));
     }
+    if (params.has('emblemEntrance') && emblemEntranceSelect) {
+      emblemEntranceSelect.value = normalizeEmblemEntrance(params.get('emblemEntrance'));
+    }
     if (params.has('motionMode')) {
       const requestedMotion = params.get('motionMode');
       if (Object.hasOwn(MOTION_PRESETS, requestedMotion)) {
@@ -1909,6 +1963,7 @@
       emblemFlashInput,
       panelOpacityInput,
       emblemEffectSelect,
+      emblemEntranceSelect,
     ].forEach((control) => {
       if (!control) {
         return;

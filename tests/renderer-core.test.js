@@ -4,12 +4,15 @@ const {
   EMBLEM_KEYS,
   EMBLEM_EFFECT_KEYS,
   EMBLEM_EFFECT_BY_EMBLEM,
+  EMBLEM_ENTRANCE_KEYS,
+  EMBLEM_ENTRANCE_BY_EMBLEM,
   OUTPUT_SIZES,
   PARTICLE_DEFAULTS,
   clampOpacity,
   clampProgress,
   createRenderState,
   getAnimatedOverlayState,
+  getEmblemMotionState,
   getParticleCount,
   getParticleState,
   getMediaDimensions,
@@ -23,7 +26,9 @@ const {
   getCoverRect,
   normalizeEmblem,
   normalizeEmblemEffect,
+  normalizeEmblemEntrance,
   resolveEmblemEffect,
+  resolveEmblemEntrance,
 } = require('../js/renderer-core.js');
 
 function test(name, fn) {
@@ -118,6 +123,7 @@ test('default render state matches requested overlay defaults', () => {
   assert.equal(state.mode, '16:9');
   assert.equal(state.emblem, 'mengdei');
   assert.equal(state.emblemEffect, 'auto');
+  assert.equal(state.emblemEntrance, 'auto');
   assert.equal(state.line1, '序章 第一幕 完成');
   assert.equal(state.line2, '捕风的异乡人');
   assert.equal(state.line3, '任务完成');
@@ -169,6 +175,56 @@ test('emblem animation presets include every selectable reference effect', () =>
   assert.equal(normalizeEmblemEffect('unknown'), 'auto');
 });
 
+test('emblem entrance presets cover translation, rotation, flip, and spiral motion', () => {
+  assert.deepEqual(EMBLEM_ENTRANCE_KEYS, [
+    'auto',
+    'rise',
+    'rebound',
+    'spin',
+    'slide-left',
+    'slide-right',
+    'flip',
+    'spiral',
+    'drop',
+  ]);
+  assert.equal(resolveEmblemEntrance('auto', 'mengdei'), EMBLEM_ENTRANCE_BY_EMBLEM.mengdei);
+  assert.equal(resolveEmblemEntrance('auto', 'liyue'), 'spin');
+  assert.equal(resolveEmblemEntrance('slide-right', 'xuni'), 'slide-right');
+  assert.equal(normalizeEmblemEntrance('unknown'), 'auto');
+});
+
+test('every emblem entrance starts in motion and settles exactly on the final layout', () => {
+  for (const entrance of EMBLEM_ENTRANCE_KEYS.filter((value) => value !== 'auto')) {
+    const start = getEmblemMotionState(0, entrance, 'mengdei');
+    const middle = getEmblemMotionState(0.2, entrance, 'mengdei');
+    const end = getEmblemMotionState(1, entrance, 'mengdei');
+    for (const value of [
+      middle.offsetX,
+      middle.offsetY,
+      middle.rotation,
+      middle.scale,
+      middle.scaleX,
+      middle.scaleY,
+    ]) {
+      assert.ok(Number.isFinite(value), `${entrance} should produce finite transform values`);
+    }
+    assert.ok(
+      Math.abs(start.offsetX) > 0
+        || Math.abs(start.offsetY) > 0
+        || Math.abs(start.rotation) > 0
+        || Math.abs(start.scale - 1) > 0
+        || Math.abs(start.scaleX - 1) > 0,
+      `${entrance} should not start at the final transform`
+    );
+    assert.equal(end.offsetX, 0);
+    assert.equal(end.offsetY, 0);
+    assert.equal(end.rotation, 0);
+    assert.equal(end.scale, 1);
+    assert.equal(end.scaleX, 1);
+    assert.equal(end.scaleY, 1);
+  }
+});
+
 test('unknown emblem values fall back to the default', () => {
   assert.equal(normalizeEmblem('unknown'), 'mengdei');
   assert.equal(createRenderState({ emblem: 'unknown' }).emblem, 'mengdei');
@@ -182,6 +238,7 @@ test('render state accepts editable lines and overlay overrides', () => {
     overlayOpacity: 0.8,
     emblemFlashIntensity: 1.8,
     emblemEffect: 'ripple',
+    emblemEntrance: 'spiral',
     panelOpacity: 0.9,
     mode: 'source',
   });
@@ -193,6 +250,7 @@ test('render state accepts editable lines and overlay overrides', () => {
   assert.equal(state.overlayOpacity, 0.8);
   assert.equal(state.emblemFlashIntensity, 1.8);
   assert.equal(state.emblemEffect, 'ripple');
+  assert.equal(state.emblemEntrance, 'spiral');
   assert.equal(state.panelOpacity, 0.9);
   assert.equal(state.mode, 'source');
 });

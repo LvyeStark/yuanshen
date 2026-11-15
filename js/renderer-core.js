@@ -42,10 +42,39 @@ const EMBLEM_EFFECT_BY_EMBLEM = Object.freeze({
   huanxiangzhenjinjushi: 'sweep',
 });
 
+const EMBLEM_ENTRANCE_KEYS = Object.freeze([
+  'auto',
+  'rise',
+  'rebound',
+  'spin',
+  'slide-left',
+  'slide-right',
+  'flip',
+  'spiral',
+  'drop',
+]);
+
+const EMBLEM_ENTRANCE_BY_EMBLEM = Object.freeze({
+  mengdei: 'rise',
+  liyue: 'spin',
+  daoqi: 'slide-right',
+  xuni: 'flip',
+  fengdan: 'slide-left',
+  nata: 'drop',
+  nuodekalai: 'spiral',
+  zhidong: 'slide-left',
+  dachishahai: 'spin',
+  chenyugu: 'rise',
+  youyoudujiacun: 'rebound',
+  kongzhishendian: 'flip',
+  huanxiangzhenjinjushi: 'spiral',
+});
+
 const DEFAULTS = {
   mode: '16:9',
   emblem: 'mengdei',
   emblemEffect: 'auto',
+  emblemEntrance: 'auto',
   outputWidth: 1920,
   outputHeight: 1080,
   line1: '序章 第一幕 完成',
@@ -193,6 +222,100 @@ function getAnimatedOverlayState(progress) {
     taskBandProgress: easeInOutCubic(rangeProgress(clamped, 0.68, 0.88)),
     continuationAlpha: easeInOutCubic(rangeProgress(clamped, 0.82, 0.99)),
   };
+}
+
+function normalizeEmblemEntrance(value) {
+  return EMBLEM_ENTRANCE_KEYS.includes(value) ? value : DEFAULTS.emblemEntrance;
+}
+
+function resolveEmblemEntrance(value, emblem) {
+  const entrance = normalizeEmblemEntrance(value);
+  if (entrance !== 'auto') {
+    return entrance;
+  }
+  return EMBLEM_ENTRANCE_BY_EMBLEM[normalizeEmblem(emblem)] || 'rise';
+}
+
+function getEmblemMotionState(progress, entrance = DEFAULTS.emblemEntrance, emblem = DEFAULTS.emblem) {
+  const resolvedEntrance = resolveEmblemEntrance(entrance, emblem);
+  const motionProgress = rangeProgress(progress, 0.035, 0.48);
+  const smooth = easeOutCubic(motionProgress);
+  const settle = easeOutBack(motionProgress);
+  const remaining = 1 - smooth;
+  const overshootRemaining = 1 - settle;
+  const motion = {
+    entrance: resolvedEntrance,
+    progress: motionProgress,
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    scale: 0.74 + settle * 0.26,
+    scaleX: 1,
+    scaleY: 1,
+  };
+
+  switch (resolvedEntrance) {
+    case 'spin':
+      motion.offsetY = overshootRemaining * 34;
+      motion.rotation = -Math.PI * 0.72 * remaining;
+      motion.scale = 0.56 + settle * 0.44;
+      break;
+    case 'slide-left':
+      motion.offsetX = overshootRemaining * -180;
+      motion.offsetY = remaining * 18;
+      motion.rotation = -0.16 * remaining;
+      motion.scale = 0.82 + settle * 0.18;
+      break;
+    case 'slide-right':
+      motion.offsetX = overshootRemaining * 180;
+      motion.offsetY = remaining * 18;
+      motion.rotation = 0.16 * remaining;
+      motion.scale = 0.82 + settle * 0.18;
+      break;
+    case 'flip':
+      motion.offsetY = overshootRemaining * 42;
+      motion.rotation = -0.08 * remaining;
+      motion.scale = 0.84 + settle * 0.16;
+      motion.scaleX = Math.max(0.04, 0.04 + settle * 0.96);
+      motion.scaleY = 0.9 + settle * 0.1;
+      break;
+    case 'spiral': {
+      const radius = 150 * remaining;
+      const angle = -2.2 + motionProgress * 2.2;
+      motion.offsetX = Math.cos(angle) * radius;
+      motion.offsetY = Math.sin(angle) * radius * 0.62;
+      motion.rotation = -1.35 * remaining;
+      motion.scale = 0.46 + settle * 0.54;
+      break;
+    }
+    case 'drop':
+      motion.offsetY = overshootRemaining * -135;
+      motion.rotation = 0.12 * remaining;
+      motion.scale = 0.78 + settle * 0.22;
+      break;
+    case 'rebound':
+      motion.offsetY = overshootRemaining * 28;
+      motion.scale = 0.68 + settle * 0.32;
+      break;
+    case 'rise':
+    default:
+      motion.offsetY = overshootRemaining * 118;
+      motion.rotation = -0.055 * remaining;
+      break;
+  }
+
+  if (motionProgress >= 1) {
+    Object.assign(motion, {
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+      scale: 1,
+      scaleX: 1,
+      scaleY: 1,
+    });
+  }
+
+  return motion;
 }
 
 function normalizeParticleDimension(value) {
@@ -476,6 +599,7 @@ function createRenderState(overrides = {}) {
     mode: overrides.mode || DEFAULTS.mode,
     emblem: normalizeEmblem(overrides.emblem),
     emblemEffect: normalizeEmblemEffect(overrides.emblemEffect),
+    emblemEntrance: normalizeEmblemEntrance(overrides.emblemEntrance),
     line1: overrides.line1 ?? DEFAULTS.line1,
     line2: overrides.line2 ?? DEFAULTS.line2,
     line3: DEFAULTS.line3,
@@ -528,12 +652,15 @@ if (typeof module !== 'undefined') {
     EMBLEM_KEYS,
     EMBLEM_EFFECT_KEYS,
     EMBLEM_EFFECT_BY_EMBLEM,
+    EMBLEM_ENTRANCE_KEYS,
+    EMBLEM_ENTRANCE_BY_EMBLEM,
     OUTPUT_SIZES,
     PARTICLE_DEFAULTS,
     clampOpacity,
     clampProgress,
     createRenderState,
     getAnimatedOverlayState,
+    getEmblemMotionState,
     getParticleCount,
     getParticleState,
     getMediaDimensions,
@@ -547,6 +674,8 @@ if (typeof module !== 'undefined') {
     getCoverRect,
     normalizeEmblem,
     normalizeEmblemEffect,
+    normalizeEmblemEntrance,
     resolveEmblemEffect,
+    resolveEmblemEntrance,
   };
 }

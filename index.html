@@ -117,6 +117,22 @@
             <small>参考图集拆分为七种动态光效；“自动匹配”会按所选地区徽记切换，“全效果仪式”会组合全部层次。</small>
           </label>
 
+          <label class="field">
+            <span>徽记出现动作</span>
+            <select id="emblemEntranceSelect">
+              <option value="auto" selected>自动匹配徽记</option>
+              <option value="rise">下方升起</option>
+              <option value="rebound">缩放回弹</option>
+              <option value="spin">旋转展开</option>
+              <option value="slide-left">左侧滑入</option>
+              <option value="slide-right">右侧滑入</option>
+              <option value="flip">翻转显形</option>
+              <option value="spiral">螺旋汇聚</option>
+              <option value="drop">上方落定</option>
+            </select>
+            <small>单独控制徽记本身的位移、旋转、缩放与回弹；不会改变上方选择的烟环、星芒等光效。</small>
+          </label>
+
           <fieldset class="field radio-group emblem-field">
             <legend>任务徽记</legend>
             <div id="emblemPicker" class="emblem-picker">
@@ -265,8 +281,8 @@
       </section>
     </main>
 
-    <script src="js/renderer-core.js?v=1.7"></script>
-    <script src="js/script.js?v=1.7"></script>
-    <script src="js/editor-particles.js?v=1.7"></script>
+    <script src="js/renderer-core.js?v=1.8"></script>
+    <script src="js/script.js?v=1.8"></script>
+    <script src="js/editor-particles.js?v=1.8"></script>
   </body>
 </html>

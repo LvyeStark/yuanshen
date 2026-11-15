@@ -44,6 +44,7 @@ assert.deepEqual(
 const opacityInputPosition = html.indexOf('id="overlayOpacityInput"');
 const emblemFlashInputPosition = html.indexOf('id="emblemFlashInput"');
 const emblemEffectSelectPosition = html.indexOf('id="emblemEffectSelect"');
+const emblemEntranceSelectPosition = html.indexOf('id="emblemEntranceSelect"');
 const panelOpacityInputPosition = html.indexOf('id="panelOpacityInput"');
 const emblemSelectPosition = html.indexOf('id="emblemPicker"');
 const exportButtonPosition = html.indexOf('id="exportButton"');
@@ -54,6 +55,7 @@ const motionModePosition = html.indexOf('name="motionMode"');
 assert.ok(opacityInputPosition >= 0, 'overlayOpacityInput should exist');
 assert.ok(emblemFlashInputPosition >= 0, 'emblem flash intensity should be adjustable');
 assert.ok(emblemEffectSelectPosition >= 0, 'emblem animation effect should be selectable');
+assert.ok(emblemEntranceSelectPosition >= 0, 'emblem entrance motion should be selectable');
 assert.ok(panelOpacityInputPosition >= 0, 'task and continuation panel opacity should be adjustable');
 assert.ok(emblemSelectPosition >= 0, 'emblemPicker should exist');
 assert.ok(exportButtonPosition >= 0, 'exportButton should exist');
@@ -80,12 +82,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=1.7"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=1.8"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=1.7"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=1.7"></script>'),
+  html.indexOf('<script src="js/script.js?v=1.8"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=1.8"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(
@@ -390,6 +392,18 @@ assert.match(
   script,
   /drawLuminousEmblem\(\s*emblems\[state\.emblem\]/u,
   'the center overlay should draw the selected emblem with the luminous treatment'
+);
+
+assert.match(
+  script,
+  /getEmblemMotionState\(animation\.progress,\s*state\.emblemEntrance,\s*state\.emblem\)/u,
+  'the selected emblem should use its own entrance transform timeline'
+);
+
+assert.match(
+  script,
+  /ctx\.rotate\(transform\.rotation\)/u,
+  'emblem entrance presets should support real badge rotation'
 );
 
 assert.match(
