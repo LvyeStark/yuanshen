@@ -1,0 +1,650 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const root = path.resolve(__dirname, '..');
+const coreSource = fs.readFileSync(path.join(root, 'js', 'renderer-core.js'), 'utf8');
+const scriptSource = fs.readFileSync(path.join(root, 'js', 'script.js'), 'utf8');
+const emblemCases = [
+  { key: 'mengdei', label: '蒙德', src: 'assets/mengdei.png', previewSrc: 'assets/preview/mengdei.png' },
+  { key: 'liyue', label: '璃月', src: 'assets/liyue.png', previewSrc: 'assets/preview/liyue.png' },
+  { key: 'daoqi', label: '稻妻', src: 'assets/daoqi.png', previewSrc: 'assets/preview/daoqi.png' },
+  { key: 'xuni', label: '须弥', src: 'assets/xuni.png', previewSrc: 'assets/preview/xuni.png' },
+  { key: 'fengdan', label: '枫丹', src: 'assets/fengdan.png', previewSrc: 'assets/preview/fengdan.png' },
+  { key: 'nata', label: '纳塔', src: 'assets/nata.png', previewSrc: 'assets/preview/nata.png' },
+  { key: 'nuodekalai', label: '空月之歌', src: 'assets/nuodekalai.png', previewSrc: 'assets/preview/nuodekalai.png' },
+  { key: 'zhidong', label: '至冬', src: 'assets/zhidong.png', previewSrc: 'assets/preview/zhidong.png' },
+  { key: 'dachishahai', label: '大赤沙海', src: 'assets/dachishahai.png', previewSrc: 'assets/preview/dachishahai.png' },
+  { key: 'chenyugu', label: '沉玉谷', src: 'assets/chenyugu.png', previewSrc: 'assets/preview/chenyugu.png' },
+  { key: 'youyoudujiacun', label: '悠悠度假村', src: 'assets/youyoudujiacun.png', previewSrc: 'assets/preview/youyoudujiacun.png' },
+  { key: 'kongzhishendian', label: '空之神殿', src: 'assets/kongzhishendian.png', previewSrc: 'assets/preview/kongzhishendian.png' },
+  { key: 'huanxiangzhenjinjushi', label: '幻想真境剧诗', src: 'assets/huanxiangzhenjinjushi.png', previewSrc: 'assets/preview/huanxiangzhenjinjushi.png' },
+];
+const emblemKeys = emblemCases.map(({ key }) => key);
+
+function createElement(initial = {}) {
+  const listeners = new Map();
+  return {
+    value: '',
+    textContent: '',
+    disabled: false,
+    files: [],
+    style: {},
+    ...initial,
+    addEventListener(type, listener) {
+      const registered = listeners.get(type) || [];
+      registered.push(listener);
+      listeners.set(type, registered);
+    },
+    dispatch(type) {
+      for (const listener of listeners.get(type) || []) {
+        listener({ target: this });
+      }
+    },
+    click() {
+      this.clicked = true;
+    },
+  };
+}
+
+function createDrawingContext(drawCalls, onRender) {
+  const gradient = () => ({ addColorStop() {} });
+  const stateStack = [];
+  const context = {
+    filter: 'none',
+    globalAlpha: 1,
+    globalCompositeOperation: 'source-over',
+    clearRect() {
+      onRender();
+    },
+    drawImage(...args) {
+      const call = [...args];
+      call.filter = this.filter;
+      call.globalCompositeOperation = this.globalCompositeOperation;
+      drawCalls.push(call);
+    },
+    fillRect() {},
+    createLinearGradient: gradient,
+    createRadialGradient: gradient,
+    save() {
+      stateStack.push({
+        filter: this.filter,
+        globalAlpha: this.globalAlpha,
+        globalCompositeOperation: this.globalCompositeOperation,
+      });
+    },
+    restore() {
+      Object.assign(this, stateStack.pop() || {});
+    },
+    beginPath() {},
+    arc() {},
+    fill() {},
+    stroke() {},
+    moveTo() {},
+    lineTo() {},
+    closePath() {},
+    translate() {},
+    scale() {},
+    strokeText() {},
+    fillText() {},
+    measureText(text) {
+      return { width: String(text).length * 10 };
+    },
+  };
+  return context;
+}
+
+function scheduleTicks(count, callback) {
+  if (count <= 0) {
+    queueMicrotask(callback);
+    return;
+  }
+  setImmediate(() => scheduleTicks(count - 1, callback));
+}
+
+function createHarness(options = {}) {
+  const drawCalls = [];
+  const maskDrawCalls = [];
+  const scratchCanvases = [];
+  const failedSources = new Set(options.failedSources || []);
+  const heldSources = new Set(options.heldSources || []);
+  const heldLoads = new Map();
+  const delayTicks = options.delayTicks || {};
+  const alphaModes = options.alphaModes || {};
+
+  const elements = {
+    imageInput: createElement(),
+    line1Input: createElement({ value: '序章 第一幕 完成' }),
+    line2Input: createElement({ value: '捕风的异乡人' }),
+    overlayColorInput: createElement({ value: '#000000' }),
+    overlayOpacityInput: createElement({ value: '0.45' }),
+    opacityValue: createElement({ textContent: '45%' }),
+    emblemFlashInput: createElement({ value: '1.35' }),
+    emblemFlashValue: createElement({ textContent: '135%' }),
+    panelOpacityInput: createElement({ value: '0.72' }),
+    panelOpacityValue: createElement({ textContent: '72%' }),
+    previewAnimationButton: createElement({ textContent: '预览动画' }),
+    exportButton: createElement(),
+    statusText: createElement({ textContent: '上传图片后可导出生成结果。' }),
+    downloadLink: createElement({ hidden: true }),
+  };
+
+  const emblemInputs = Object.fromEntries(
+    emblemKeys.map((key) => [
+      key,
+      createElement({ value: key, checked: key === (options.initialEmblem || 'mengdei') }),
+    ])
+  );
+  elements.emblemPicker = createElement();
+  elements.emblemPicker.querySelector = (selector) => {
+    if (/^input\[name="emblem"\]:checked$/u.test(selector)) {
+      return emblemKeys.map((key) => emblemInputs[key]).find((input) => input.checked) || null;
+    }
+    const match = selector.match(/^input\[name="emblem"\]\[value="([^"]+)"\]$/u);
+    return match ? emblemInputs[match[1]] || null : null;
+  };
+  elements.emblemPicker.querySelectorAll = (selector) => (
+    /^input\[name="emblem"\]$/u.test(selector) ? emblemKeys.map((key) => emblemInputs[key]) : []
+  );
+
+  let renderCount = 0;
+  const mainContext = createDrawingContext(drawCalls, () => {
+    renderCount += 1;
+    if (renderCount === options.throwOnRenderCount) {
+      throw new Error(`render failed at attempt ${renderCount}`);
+    }
+  });
+  const mainCanvas = createElement({
+    width: 1920,
+    height: 1080,
+    getContext() {
+      return mainContext;
+    },
+    toBlob(callback) {
+      callback(options.exportBlob === null ? null : { type: 'image/png' });
+    },
+  });
+  elements.previewCanvas = mainCanvas;
+
+  const modeInput = createElement({ value: '16:9', checked: true });
+  const bodyClasses = new Set();
+
+  function createScratchCanvas() {
+    let width = 0;
+    let height = 0;
+    let source = null;
+    const gradient = () => ({ addColorStop() {} });
+    const scratch = {
+      get width() {
+        return width;
+      },
+      set width(value) {
+        width = value;
+      },
+      get height() {
+        return height;
+      },
+      set height(value) {
+        height = value;
+      },
+      getContext() {
+        return {
+          filter: 'none',
+          globalCompositeOperation: 'source-over',
+          drawImage(...args) {
+            const [image] = args;
+            source = image;
+            if (args.length >= 9) {
+              const call = [...args];
+              call.filter = this.filter;
+              call.globalCompositeOperation = this.globalCompositeOperation;
+              maskDrawCalls.push(call);
+            }
+          },
+          fillRect() {},
+          createRadialGradient: gradient,
+          getImageData(x, y, scanWidth, scanHeight) {
+            assert.ok(
+              scanWidth <= 512 && scanHeight <= 512,
+              `visible-bound scan requested ${scanWidth}x${scanHeight}`
+            );
+            const data = new Uint8ClampedArray(scanWidth * scanHeight * 4);
+            const mode = alphaModes[source?.src] || options.alphaMode || 'opaque';
+            for (let scanY = 0; scanY < scanHeight; scanY += 1) {
+              for (let scanX = 0; scanX < scanWidth; scanX += 1) {
+                const visible = mode === 'opaque'
+                  || (mode === 'center'
+                    && scanX >= scanWidth * 0.25
+                    && scanX < scanWidth * 0.75
+                    && scanY >= scanHeight * 0.25
+                    && scanY < scanHeight * 0.75);
+                if (visible) {
+                  data[(scanY * scanWidth + scanX) * 4 + 3] = 255;
+                }
+              }
+            }
+            return { data };
+          },
+        };
+      },
+    };
+    scratchCanvases.push(scratch);
+    return scratch;
+  }
+
+  const document = {
+    body: {
+      classList: {
+        add(name) {
+          bodyClasses.add(name);
+        },
+      },
+    },
+    getElementById(id) {
+      return elements[id] || null;
+    },
+    querySelector(selector) {
+      return selector === 'input[name="sizeMode"]:checked' ? modeInput : null;
+    },
+    querySelectorAll(selector) {
+      return selector === 'input[name="sizeMode"]' ? [modeInput] : [];
+    },
+    createElement(tagName) {
+      if (tagName === 'canvas') {
+        return createScratchCanvas();
+      }
+      return createElement();
+    },
+  };
+
+  function getDimensions(src) {
+    if (options.dimensions?.[src]) {
+      return options.dimensions[src];
+    }
+    if (src === 'assets/weiwandaixu-clean.png') {
+      return { width: 64, height: 32 };
+    }
+    if (options.largeEmblems && /^assets\/(?:mengdei|liyue|daoqi|xuni|fengdan|nata|nuodekalai)\.png$/u.test(src)) {
+      return { width: 2446, height: 2446 };
+    }
+    return /^assets\//u.test(src)
+      ? { width: 64, height: 64 }
+      : { width: 320, height: 180 };
+  }
+
+  class FakeImage {
+    set src(value) {
+      this._src = value;
+      const dimensions = getDimensions(value);
+      this.width = dimensions.width;
+      this.height = dimensions.height;
+      this.naturalWidth = dimensions.width;
+      this.naturalHeight = dimensions.height;
+      const complete = () => {
+        if (failedSources.has(value)) {
+          this.onerror?.(new Error(`failed ${value}`));
+        } else {
+          this.onload?.();
+        }
+      };
+      if (heldSources.has(value)) {
+        const pending = heldLoads.get(value) || [];
+        pending.push(complete);
+        heldLoads.set(value, pending);
+      } else {
+        scheduleTicks(delayTicks[value] || 0, complete);
+      }
+    }
+
+    get src() {
+      return this._src;
+    }
+  }
+
+  const objectUrls = [];
+  const context = vm.createContext({
+    console,
+    document,
+    window: { location: { search: options.search || '' } },
+    Image: FakeImage,
+    URL: {
+      createObjectURL(value) {
+        const url = value?.name ? `blob:${value.name}` : 'blob:export';
+        objectUrls.push(url);
+        return url;
+      },
+      revokeObjectURL() {},
+    },
+    URLSearchParams,
+  });
+
+  vm.runInContext(coreSource, context, { filename: 'renderer-core.js' });
+  vm.runInContext(scriptSource, context, { filename: 'script.js' });
+
+  return {
+    drawCalls,
+    maskDrawCalls,
+    elements,
+    emblemInputs,
+    scratchCanvases,
+    objectUrls,
+    get renderCount() {
+      return renderCount;
+    },
+    release(source) {
+      heldSources.delete(source);
+      for (const complete of heldLoads.get(source) || []) {
+        scheduleTicks(0, complete);
+      }
+      heldLoads.delete(source);
+    },
+    async flush(turns = 12) {
+      for (let index = 0; index < turns; index += 1) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+    },
+  };
+}
+
+const tests = [];
+function test(name, callback) {
+  tests.push([name, callback]);
+}
+
+function selectedEmblem(harness) {
+  return harness.elements.emblemPicker.querySelector('input[name="emblem"]:checked')?.value;
+}
+
+function chooseEmblem(harness, key) {
+  for (const input of harness.elements.emblemPicker.querySelectorAll('input[name="emblem"]')) {
+    input.checked = input.value === key;
+  }
+  harness.elements.emblemPicker.dispatch('change');
+}
+
+test('every canonical emblem key previews from its small asset path', async () => {
+  for (const { key, previewSrc } of emblemCases) {
+    const harness = createHarness({ search: `?testImage=query.png&emblem=${key}` });
+    await harness.flush();
+
+    assert.equal(selectedEmblem(harness), key);
+    assert.ok(
+      harness.maskDrawCalls.some(([source]) => source?.src === previewSrc),
+      `${key} should draw ${previewSrc} into the preview gold emblem mask`
+    );
+  }
+});
+
+test('selected emblem is drawn with an ivory body, gold edge, and soft gold glow', async () => {
+  const harness = createHarness({ search: '?testImage=query.png&emblem=mengdei' });
+  await harness.flush();
+
+  assert.ok(
+    harness.maskDrawCalls.filter(([source]) => source?.src === 'assets/preview/mengdei.png').length >= 2,
+    'the selected preview emblem asset should feed both the blurred backlight and crisp body masks'
+  );
+  assert.ok(
+    harness.drawCalls.some((call) =>
+      !call[0]?.src &&
+      call.filter === 'blur(4px)' &&
+      call.globalCompositeOperation === 'screen'
+    ),
+    'the selected emblem should have a separate soft backlight layer'
+  );
+  assert.ok(
+    harness.drawCalls.some((call) =>
+      !call[0]?.src &&
+      call.filter === 'drop-shadow(0 0 10px rgba(201, 169, 110, 0.6))' &&
+      call.globalCompositeOperation === 'source-over'
+    ),
+    'the selected emblem should keep a tight requested soft gold drop-shadow on the crisp body'
+  );
+});
+
+test('preview renders from small assets while high-res emblems are still loading', async () => {
+  const heldSources = emblemCases.map(({ src }) => src);
+  const harness = createHarness({ heldSources });
+  await harness.flush(4);
+
+  assert.ok(
+    harness.maskDrawCalls.some(([source]) => source?.src === 'assets/preview/mengdei.png'),
+    'the default preview emblem should render from the small preview PNG'
+  );
+  assert.equal(
+    harness.maskDrawCalls.some(([source]) => source?.src === 'assets/mengdei.png'),
+    false,
+    'preview rendering should not require the high-res emblem'
+  );
+});
+
+test('every failed preview emblem reports its exact label while other assets remain usable', async () => {
+  for (const { key, label, previewSrc } of emblemCases) {
+    const harness = createHarness({
+      initialEmblem: key,
+      failedSources: [previewSrc],
+      delayTicks: { 'assets/preview/mengdei.png': 3 },
+    });
+    await harness.flush();
+
+    assert.equal(harness.emblemInputs[key].disabled, true);
+    for (const availableKey of emblemKeys.filter((candidate) => candidate !== key)) {
+      assert.equal(
+        harness.emblemInputs[availableKey].disabled,
+        false,
+        `${availableKey} should remain enabled when ${key} fails`
+      );
+    }
+
+    const expectedFallback = key === 'mengdei' ? 'liyue' : 'mengdei';
+    const fallbackSource = emblemCases.find(
+      ({ key: candidate }) => candidate === expectedFallback
+    ).previewSrc;
+    assert.equal(selectedEmblem(harness), expectedFallback);
+    if (key === 'mengdei') {
+      assert.equal(
+        selectedEmblem(harness),
+        'liyue',
+        'the failed default emblem should fall back to Liyue'
+      );
+    }
+    assert.ok(
+      harness.maskDrawCalls.some(([source]) => source?.src === fallbackSource),
+      `${expectedFallback} should remain drawable when ${key} fails`
+    );
+    assert.ok(
+      harness.elements.statusText.textContent.endsWith(`以下大图标加载失败：${label}。`),
+      `${key} should report the exact label ${label}`
+    );
+  }
+});
+
+test('asset warning remains visible after upload and export activity', async () => {
+  const harness = createHarness({ failedSources: ['assets/preview/xuni.png'] });
+  await harness.flush();
+
+  harness.elements.imageInput.files = [{ name: 'later.png' }];
+  harness.elements.imageInput.dispatch('change');
+  await harness.flush();
+  assert.match(harness.elements.statusText.textContent, /later\.png/u);
+  assert.match(harness.elements.statusText.textContent, /须弥/u);
+
+  harness.elements.exportButton.dispatch('click');
+  assert.match(harness.elements.statusText.textContent, /task-overlay\.png/u);
+  assert.match(harness.elements.statusText.textContent, /须弥/u);
+});
+
+test('export waits when the selected high-res emblem is still loading', async () => {
+  const harness = createHarness({
+    heldSources: ['assets/mengdei.png'],
+  });
+  await harness.flush();
+
+  assert.match(harness.elements.statusText.textContent, /高清大图标加载中/u);
+  assert.match(harness.elements.statusText.textContent, /预计/u);
+
+  harness.elements.imageInput.files = [{ name: 'later.png' }];
+  harness.elements.imageInput.dispatch('change');
+  await harness.flush();
+  harness.objectUrls.length = 0;
+  harness.elements.exportButton.dispatch('click');
+
+  assert.equal(
+    harness.objectUrls.includes('blob:export'),
+    false,
+    'export should not create a download while the selected high-res emblem is still pending'
+  );
+  assert.match(harness.elements.statusText.textContent, /高清/u);
+
+  harness.release('assets/mengdei.png');
+  await harness.flush();
+});
+
+test('export uses the selected high-res emblem after it loads', async () => {
+  const harness = createHarness({ search: '?testImage=query.png&emblem=liyue' });
+  await harness.flush();
+
+  harness.elements.imageInput.files = [{ name: 'later.png' }];
+  harness.elements.imageInput.dispatch('change');
+  await harness.flush();
+  harness.drawCalls.length = 0;
+  harness.maskDrawCalls.length = 0;
+  harness.elements.exportButton.dispatch('click');
+
+  assert.ok(
+    harness.maskDrawCalls.some(([source]) => source?.src === 'assets/liyue.png'),
+    'export rendering should use the high-res selected emblem'
+  );
+  assert.ok(
+    harness.objectUrls.includes('blob:export'),
+    'export should create a download when the high-res emblem is ready'
+  );
+});
+
+test('selection changes draw the selected asset and query selects nata', async () => {
+  const harness = createHarness({ search: '?testImage=query.png&emblem=nata' });
+  assert.equal(selectedEmblem(harness), 'nata');
+  await harness.flush();
+
+  harness.drawCalls.length = 0;
+  chooseEmblem(harness, 'liyue');
+  assert.ok(
+    harness.maskDrawCalls.some(([source]) => source?.src === 'assets/preview/liyue.png'),
+    'changing the selection should draw the Liyue emblem'
+  );
+});
+
+test('a loaded default emblem renders before the slowest emblem finishes', async () => {
+  const heldSources = emblemKeys
+    .filter((key) => key !== 'mengdei')
+    .map((key) => `assets/${key}.png`);
+  const harness = createHarness({ heldSources });
+  await harness.flush(4);
+
+  assert.ok(
+    harness.maskDrawCalls.some(([source]) => source?.src === 'assets/preview/mengdei.png'),
+    'the default emblem should render while other loads are still pending'
+  );
+
+  for (const source of heldSources) {
+    harness.release(source);
+  }
+  await harness.flush();
+});
+
+test('default emblem renders before the continuation asset finishes loading', async () => {
+  const harness = createHarness({
+    heldSources: ['assets/weiwandaixu-clean.png'],
+  });
+  await harness.flush(4);
+
+  assert.ok(
+    harness.maskDrawCalls.some(([source]) => source?.src === 'assets/preview/mengdei.png'),
+    'the default emblem should render while the fixed bottom asset is still pending'
+  );
+
+  harness.release('assets/weiwandaixu-clean.png');
+  await harness.flush();
+});
+
+test('unrelated successful emblem loads do not render the full canvas', async () => {
+  const heldPreviewSources = emblemKeys
+    .filter((key) => key !== 'mengdei')
+    .map((key) => `assets/preview/${key}.png`);
+  const heldHighResSources = emblemKeys
+    .filter((key) => key !== 'liyue')
+    .map((key) => `assets/${key}.png`);
+  const harness = createHarness({
+    heldSources: [...heldPreviewSources, ...heldHighResSources, 'assets/weiwandaixu-clean.png'],
+  });
+  await harness.flush(4);
+  const initialRenderCount = harness.renderCount;
+
+  harness.release(heldPreviewSources[0]);
+  await harness.flush(4);
+
+  assert.equal(
+    harness.renderCount,
+    initialRenderCount,
+    'loading an unselected emblem should not render the full canvas'
+  );
+
+  for (const source of [...heldPreviewSources.slice(1), ...heldHighResSources]) {
+    harness.release(source);
+  }
+  await harness.flush();
+});
+
+test('a render exception does not disable a successfully loaded emblem', async () => {
+  const harness = createHarness({ throwOnRenderCount: 2 });
+  await harness.flush();
+
+  assert.equal(harness.emblemInputs.mengdei.disabled, false);
+});
+
+test('large visible-bound scans are downsampled and map back to source bounds', async () => {
+  const harness = createHarness({ largeEmblems: true, alphaMode: 'center' });
+  await harness.flush(20);
+
+  assert.ok(harness.scratchCanvases.length >= emblemKeys.length);
+  for (const scratch of harness.scratchCanvases) {
+    assert.ok(scratch.width <= 512, `scratch width was ${scratch.width}`);
+    assert.ok(scratch.height <= 512, `scratch height was ${scratch.height}`);
+  }
+
+  const emblemDraw = harness.maskDrawCalls.find(
+    ([source]) => source?.src === 'assets/preview/mengdei.png'
+  );
+  assert.ok(emblemDraw, 'the large emblem should still draw');
+  assert.ok(emblemDraw[1] > 0 && emblemDraw[2] > 0, 'transparent edges should be cropped');
+  assert.ok(emblemDraw[3] < 2446 && emblemDraw[4] < 2446, 'bounds should map to source pixels');
+});
+
+test('fully transparent images safely fall back to full source bounds', async () => {
+  const harness = createHarness({
+    alphaModes: { 'assets/preview/mengdei.png': 'transparent' },
+  });
+  await harness.flush();
+
+  const emblemDraw = harness.maskDrawCalls.find(
+    ([source]) => source?.src === 'assets/preview/mengdei.png'
+  );
+  assert.deepEqual(emblemDraw.slice(1, 5), [0, 0, 64, 64]);
+});
+
+(async () => {
+  let failures = 0;
+  for (const [name, callback] of tests) {
+    try {
+      await callback();
+      console.log(`PASS ${name}`);
+    } catch (error) {
+      failures += 1;
+      console.error(`FAIL ${name}`);
+      console.error(error.stack || error);
+    }
+  }
+  if (failures > 0) {
+    process.exitCode = 1;
+  }
+})();

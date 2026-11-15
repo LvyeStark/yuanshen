@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f4f6f8">
+    <title>提瓦特任务影像工坊</title>
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+  <body>
+    <video class="workbench-video" data-src="assets/workbench-background.webm" muted loop playsinline preload="none" aria-hidden="true" disablepictureinpicture></video>
+    <canvas id="editorParticleCanvas" class="editor-particle-canvas" aria-hidden="true"></canvas>
+    <main class="app-shell">
+      <section class="control-panel" aria-label="图片生成设置">
+        <header class="brand">
+          <div class="brand-line">
+            <span class="brand-mark" aria-hidden="true">提</span>
+            <span class="brand-kicker">提瓦特影像</span>
+            <span class="brand-state">本地生成</span>
+          </div>
+          <h1>提瓦特任务<br>影像工坊</h1>
+          <p class="brand-subtitle">把一帧画面，变成值得保存的结果。</p>
+        </header>
+
+        <div class="panel-section">
+          <div class="section-heading">
+            <span class="section-index">01</span>
+            <h2>内容</h2>
+          </div>
+
+          <label class="field upload-field">
+            <span>上传图片或视频</span>
+            <input id="imageInput" type="file" accept="image/*,video/*">
+          </label>
+
+          <label class="field">
+            <span>第 1 行文字</span>
+            <input id="line1Input" type="text" value="序章 第一幕 完成">
+          </label>
+
+          <label class="field">
+            <span>第 2 行文字</span>
+            <input id="line2Input" type="text" value="捕风的异乡人">
+          </label>
+        </div>
+
+        <div class="panel-section">
+          <div class="section-heading">
+            <span class="section-index">02</span>
+            <h2>外观</h2>
+          </div>
+
+          <fieldset class="field radio-group">
+            <legend>输出尺寸</legend>
+            <div class="segmented-options size-options">
+              <label>
+                <input type="radio" name="sizeMode" value="16:9" checked>
+                <span>16:9</span>
+              </label>
+              <label>
+                <input type="radio" name="sizeMode" value="4:3">
+                <span>4:3</span>
+              </label>
+              <label>
+                <input type="radio" name="sizeMode" value="9:16">
+                <span>9:16</span>
+              </label>
+              <label>
+                <input type="radio" name="sizeMode" value="source">
+                <span>原图比例</span>
+              </label>
+              <label>
+                <input type="radio" name="sizeMode" value="8K">
+                <span>8K</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <label class="field compact-field">
+            <span>遮罩颜色</span>
+            <input id="overlayColorInput" type="color" value="#12151f">
+          </label>
+
+          <label class="field range-field">
+            <span>遮罩透明度 <strong id="opacityValue">62%</strong></span>
+            <input id="overlayOpacityInput" type="range" min="0" max="1" step="0.01" value="0.62">
+          </label>
+
+          <fieldset class="field effect-tuning-field">
+            <legend>高光与底板</legend>
+            <div class="effect-tuning-controls">
+              <label class="range-field">
+                <span>徽记烟环与星芒 <strong id="emblemFlashValue">135%</strong></span>
+                <input id="emblemFlashInput" type="range" min="0" max="2" step="0.05" value="1.35">
+              </label>
+              <label class="range-field">
+                <span>金色文字底带 <strong id="panelOpacityValue">72%</strong></span>
+                <input id="panelOpacityInput" type="range" min="0" max="1" step="0.01" value="0.72">
+              </label>
+            </div>
+            <small>徽记会依次出现烟雾金环、回弹显形、星芒外射；金色底带同时作用于“任务完成”和“未完待续”。</small>
+          </fieldset>
+
+          <fieldset class="field radio-group emblem-field">
+            <legend>任务徽记</legend>
+            <div id="emblemPicker" class="emblem-picker">
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="mengdei" checked>
+                <img src="assets/preview/mengdei.png" alt="" draggable="false">
+                <span>蒙德</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="liyue">
+                <img src="assets/preview/liyue.png" alt="" draggable="false">
+                <span>璃月</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="daoqi">
+                <img src="assets/preview/daoqi.png" alt="" draggable="false">
+                <span>稻妻</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="xuni">
+                <img src="assets/preview/xuni.png" alt="" draggable="false">
+                <span>须弥</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="fengdan">
+                <img src="assets/preview/fengdan.png" alt="" draggable="false">
+                <span>枫丹</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="nata">
+                <img src="assets/preview/nata.png" alt="" draggable="false">
+                <span>纳塔</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="nuodekalai">
+                <img src="assets/preview/nuodekalai.png" alt="" draggable="false">
+                <span>空月之歌</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="zhidong">
+                <img src="assets/preview/zhidong.png" alt="" draggable="false">
+                <span>至冬</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="dachishahai">
+                <img src="assets/preview/dachishahai.png" alt="" draggable="false">
+                <span>大赤沙海</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="chenyugu">
+                <img src="assets/preview/chenyugu.png" alt="" draggable="false">
+                <span>沉玉谷</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="youyoudujiacun">
+                <img src="assets/preview/youyoudujiacun.png" alt="" draggable="false">
+                <span>悠悠度假村</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="kongzhishendian">
+                <img src="assets/preview/kongzhishendian.png" alt="" draggable="false">
+                <span>空之神殿</span>
+              </label>
+              <label class="emblem-option">
+                <input type="radio" name="emblem" value="huanxiangzhenjinjushi">
+                <img src="assets/preview/huanxiangzhenjinjushi.png" alt="" draggable="false">
+                <span>幻想真境剧诗</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset class="field radio-group motion-mode-group">
+            <legend>粒子效果</legend>
+            <div class="segmented-options motion-options">
+              <label>
+                <input type="radio" name="motionMode" value="off">
+                <span>关闭</span>
+              </label>
+              <label>
+                <input type="radio" name="motionMode" value="soft" checked>
+                <span>克制</span>
+              </label>
+              <label>
+                <input type="radio" name="motionMode" value="full">
+                <span>发布感</span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="panel-section export-section">
+          <div class="section-heading">
+            <span class="section-index">03</span>
+            <h2>输出</h2>
+          </div>
+
+          <fieldset class="field radio-group export-mode-group">
+            <legend>导出格式</legend>
+            <div class="segmented-options">
+              <label>
+                <input type="radio" name="exportMode" value="image" checked>
+                <span>图片 PNG</span>
+              </label>
+              <label>
+                <input type="radio" name="exportMode" value="video">
+                <span>动画视频 H.265 MP4</span>
+              </label>
+            </div>
+          </fieldset>
+        </div>
+
+        <div class="action-stack">
+          <button id="previewAnimationButton" class="secondary-button" type="button">
+            <span class="button-icon" aria-hidden="true">▶</span>
+            <span>预览动画</span>
+          </button>
+          <button id="exportButton" class="primary-button" type="button">
+            <span>导出图片</span>
+            <span class="button-arrow" aria-hidden="true">↗</span>
+          </button>
+        </div>
+
+        <p id="statusText" class="status-text" aria-live="polite">上传图片后可导出生成结果。</p>
+        <a id="downloadLink" class="download-link" hidden>保存生成的文件</a>
+      </section>
+
+      <section class="preview-panel" aria-label="图片预览">
+        <div class="preview-toolbar">
+          <div class="preview-title-group">
+            <div class="preview-heading-line">
+              <span class="preview-dot" aria-hidden="true"></span>
+              <span class="preview-label">LIVE PREVIEW</span>
+            </div>
+            <h2>实时预览</h2>
+          </div>
+          <div class="preview-meta">
+            <span class="preview-meta-label">CANVAS</span>
+            <span id="canvasSize" class="canvas-size">1920 x 1080</span>
+          </div>
+        </div>
+        <div class="canvas-stage">
+          <canvas id="previewCanvas" width="1920" height="1080"></canvas>
+          <div class="stage-corner stage-corner-tl" aria-hidden="true"></div>
+          <div class="stage-corner stage-corner-br" aria-hidden="true"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="js/renderer-core.js?v=1.4"></script>
+    <script src="js/script.js?v=1.4"></script>
+    <script src="js/editor-particles.js?v=1.4"></script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+# Original and unrelated local video sources. The optimized workbench WebM is tracked.
+*.mp4
+
+# Generated exports, while preserving the documented sample
+outputs/*
+!outputs/task-overlay-sample.png
+
+# Browser smoke-test temporary profile
+outputs/edge-profile-temp/
+
+# Local agent metadata and planning notes
+.agents/
+.codex/
+docs/plans/
+.worktrees/
+
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local runtime state and Python caches
+.local-server.log
+.local-server.pid
+__pycache__/
+*.py[cod]
+
+# Repository-scoped deployment credentials (never commit)
+.secrets/
