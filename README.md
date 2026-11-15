@@ -24,10 +24,6 @@
 
 ## 快速开始
 
-### 在线使用
-
-项目已部署在 GitHub Pages，直接访问：<https://morri-echo.github.io/yuanshen/>
-
 ### 本地运行
 
 项目已把 FFmpeg 运行依赖安装在 `vendor/`。在项目目录启动本地网页与编码服务：
