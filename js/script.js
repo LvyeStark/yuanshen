@@ -36,6 +36,7 @@
   const exportButton = document.getElementById('exportButton');
   const statusText = document.getElementById('statusText');
   const downloadLink = document.getElementById('downloadLink');
+  const importLivePhotoButton = document.getElementById('importLivePhotoButton');
   const canvasSize = document.getElementById('canvasSize');
   const canvas = document.getElementById('previewCanvas');
   const ctx = canvas.getContext('2d');
@@ -62,6 +63,7 @@
   let autoplayTestPreview = false;
   let videoCanvasSize = null;
   let activeDownloadUrl = '';
+  let livePhotoImportUrl = '';
 
   function updateStatusText() {
     statusText.textContent = [activityMessage, highResMessage, assetWarning].filter(Boolean).join(' ');
@@ -1486,16 +1488,49 @@
     downloadLink.click();
   }
 
-  function setServerDownload(downloadUrl, fileName) {
+  function setServerDownload(downloadUrl, fileName, options = {}) {
     if (activeDownloadUrl) {
       URL.revokeObjectURL(activeDownloadUrl);
       activeDownloadUrl = '';
     }
     downloadLink.href = downloadUrl;
     downloadLink.download = fileName;
-    downloadLink.textContent = `保存 ${fileName}`;
+    downloadLink.textContent = options.label || `保存 ${fileName}`;
     downloadLink.hidden = false;
-    downloadLink.click();
+    if (options.autoDownload !== false) {
+      downloadLink.click();
+    }
+  }
+
+  function setLivePhotoImport(importUrl = '') {
+    livePhotoImportUrl = importUrl;
+    if (!importLivePhotoButton) {
+      return;
+    }
+    if (importUrl) {
+      importLivePhotoButton.textContent = '导入 Mac“照片”并同步到 iPhone';
+    }
+    importLivePhotoButton.hidden = !importUrl;
+    importLivePhotoButton.disabled = false;
+  }
+
+  async function importLivePhotoIntoPhotos() {
+    if (!livePhotoImportUrl || !importLivePhotoButton) {
+      return;
+    }
+    importLivePhotoButton.disabled = true;
+    activityMessage = '正在请求“照片”权限并导入 Live Photo...';
+    updateStatusText();
+    try {
+      const response = await fetch(livePhotoImportUrl, { method: 'POST' });
+      const result = await readJsonResponse(response);
+      activityMessage = result.message || '已导入 Mac“照片”。';
+      importLivePhotoButton.textContent = '已导入“照片”';
+    } catch (error) {
+      activityMessage = `Live Photo 导入失败：${error.message}`;
+      importLivePhotoButton.disabled = false;
+    }
+    updateStatusText();
   }
 
   async function readJsonResponse(response) {
@@ -1808,9 +1843,13 @@
         method: 'POST',
       });
       const result = await readJsonResponse(finishResponse);
-      setServerDownload(result.downloadUrl, result.fileName);
+      setServerDownload(result.downloadUrl, result.fileName, {
+        autoDownload: !isLivePhoto,
+        label: isLivePhoto ? '下载 HEIC + MOV 配对备份' : undefined,
+      });
+      setLivePhotoImport(isLivePhoto ? result.importUrl : '');
       activityMessage = isLivePhoto
-        ? `已生成 ${result.width} x ${result.height}、3.0 秒 Live Photo 配对包；解压后将同名 JPG 与 MOV 一起导入“照片”。文件位于 ${result.outputPath}。`
+        ? `已生成 ${result.width} x ${result.height}、3.0 秒 iPhone Live Photo（HEIC + H.265 MOV）；可点击下方按钮直接导入“照片”。配对备份位于 ${result.outputPath}。`
         : `已生成 ${result.width} x ${result.height} H.265 MP4，文件名已参考原素材，兼容的拍摄元数据已写入；文件同时保存在 ${result.outputPath}。`;
       updateStatusText();
     } catch (error) {
@@ -1878,6 +1917,7 @@
 
   function exportSelectedFormat() {
     stopAnimationPreview({ renderFinal: false });
+    setLivePhotoImport('');
     const exportMode = selectedExportMode();
     if (exportMode === 'video' || exportMode === 'livephoto') {
       exportAnimatedVideo(exportMode === 'livephoto' ? 'livephoto' : 'mp4');
@@ -2073,6 +2113,7 @@
 
     previewAnimationButton.addEventListener('click', playAnimationPreview);
     exportButton.addEventListener('click', exportSelectedFormat);
+    importLivePhotoButton?.addEventListener('click', importLivePhotoIntoPhotos);
   }
 
   exportButton.disabled = true;

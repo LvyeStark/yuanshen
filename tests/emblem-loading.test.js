@@ -128,6 +128,7 @@ function createHarness(options = {}) {
     exportButton: createElement(),
     statusText: createElement({ textContent: '上传图片后可导出生成结果。' }),
     downloadLink: createElement({ hidden: true }),
+    importLivePhotoButton: createElement({ hidden: true }),
   };
 
   const emblemInputs = Object.fromEntries(

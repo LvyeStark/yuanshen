@@ -297,6 +297,10 @@ select option:checked {
   background: #101318;
 }
 
+.export-mode-group .segmented-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .size-options {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -313,6 +317,14 @@ select option:checked {
 }
 
 .download-link[hidden] {
+  display: none;
+}
+
+.import-live-photo-button {
+  margin-top: 10px;
+}
+
+.import-live-photo-button[hidden] {
   display: none;
 }
 
@@ -1434,6 +1446,10 @@ body.capture-mode .canvas-stage::after {
 @media (max-width: 560px) {
   .segmented-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .export-mode-group .segmented-options {
+    grid-template-columns: 1fr;
   }
 
   .motion-options {

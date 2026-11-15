@@ -43,6 +43,10 @@ class ServerConfigurationTests(unittest.TestCase):
         self.assertIn("com.apple.quicktime.content.identifier", helper_source)
         self.assertIn("com.apple.quicktime.still-image-time", helper_source)
         self.assertIn('makerApple["17"]', helper_source)
+        self.assertIn("PHAssetCreationRequest.forAsset()", helper_source)
+        self.assertIn(".pairedVideo", helper_source)
+        usage_plist = (server.ROOT / "tools" / "live-photo-helper-Info.plist").read_text()
+        self.assertIn("NSPhotoLibraryAddUsageDescription", usage_plist)
 
     def test_ffmpeg_command_writes_source_metadata_into_mp4(self):
         output = Path("outputs/test.mp4")

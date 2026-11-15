@@ -82,12 +82,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=2.0"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=2.1"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=2.0"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=2.0"></script>'),
+  html.indexOf('<script src="js/script.js?v=2.1"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=2.1"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(
@@ -120,6 +120,22 @@ for (const sizeMode of ['16:9', '4:3', '9:16', 'source', '8K']) {
 assert.ok(
   html.includes('id="downloadLink"'),
   'a persistent download link should remain available when automatic downloads are blocked'
+);
+
+assert.ok(
+  html.includes('id="importLivePhotoButton"'),
+  'Live Photo results should offer one-click import into the Photos library'
+);
+
+assert.match(
+  script,
+  /\/api\/livephoto\/|importLivePhotoIntoPhotos|result\.importUrl/u,
+  'the UI should invoke the local Photos import endpoint for a generated Live Photo'
+);
+
+assert.ok(
+  script.includes('autoDownload: !isLivePhoto'),
+  'Live Photo should prefer one-click Photos import instead of automatically downloading a ZIP'
 );
 
 assert.match(

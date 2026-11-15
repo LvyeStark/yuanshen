@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.lvye.teyvat-task-overlay.live-photo-helper</string>
+  <key>CFBundleName</key>
+  <string>Teyvat Live Photo Helper</string>
+  <key>CFBundleDisplayName</key>
+  <string>提瓦特 Live Photo 导入器</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>CFBundleShortVersionString</key>
+  <string>2.1</string>
+  <key>NSPhotoLibraryAddUsageDescription</key>
+  <string>用于将生成的配对照片与视频导入为 Apple Live Photo。</string>
+</dict>
+</plist>
