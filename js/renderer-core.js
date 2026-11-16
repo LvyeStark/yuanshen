@@ -83,6 +83,7 @@ const DEFAULTS = {
   line4: '未完待续',
   overlayColor: '#12151f',
   overlayOpacity: 0.62,
+  vignetteIntensity: 1,
   emblemFlashIntensity: 1.35,
   panelOpacity: 0.72,
 };
@@ -606,6 +607,7 @@ function createRenderState(overrides = {}) {
     line4: DEFAULTS.line4,
     overlayColor: overrides.overlayColor || DEFAULTS.overlayColor,
     overlayOpacity: clampOpacity(overrides.overlayOpacity ?? DEFAULTS.overlayOpacity),
+    vignetteIntensity: clampOpacity(overrides.vignetteIntensity ?? DEFAULTS.vignetteIntensity),
     emblemFlashIntensity: Number.isFinite(emblemFlashIntensity)
       ? Math.min(2, Math.max(0, emblemFlashIntensity))
       : DEFAULTS.emblemFlashIntensity,

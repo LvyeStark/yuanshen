@@ -99,6 +99,8 @@
   const taskPresetSelect = document.getElementById('taskPresetSelect');
   const overlayColorInput = document.getElementById('overlayColorInput');
   const overlayOpacityInput = document.getElementById('overlayOpacityInput');
+  const vignetteInput = document.getElementById('vignetteInput');
+  const vignetteValue = document.getElementById('vignetteValue');
   const opacityValue = document.getElementById('opacityValue');
   const emblemFlashInput = document.getElementById('emblemFlashInput');
   const emblemFlashValue = document.getElementById('emblemFlashValue');
@@ -233,6 +235,7 @@
       line2: line2Input.value.trim() || DEFAULTS.line2,
       overlayColor: overlayColorInput.value,
       overlayOpacity: overlayOpacityInput.value,
+      vignetteIntensity: vignetteInput.value,
       emblemFlashIntensity: emblemFlashInput.value,
       panelOpacity: panelOpacityInput.value,
     });
@@ -272,7 +275,7 @@
 
     ctx.fillStyle = colorToRgba(state.overlayColor, state.overlayOpacity * animation.overlayAlpha);
     ctx.fillRect(0, 0, width, height);
-    drawVignette(width, height, animation.overlayAlpha);
+    drawVignette(width, height, animation.overlayAlpha * state.vignetteIntensity);
     drawParticleField(width, height, animation, elapsedMs, motionMode, staticFrame);
     drawCenterOverlay(state, width, height, emblems, animation);
   }
@@ -296,6 +299,7 @@
   }
 
   function drawVignette(width, height, alpha = 1) {
+    if (alpha <= 0) return;
     const gradient = ctx.createRadialGradient(
       width * 0.5,
       height * 0.42,
@@ -2072,6 +2076,7 @@
 
   function updateEffectValueLabels() {
     opacityValue.textContent = `${Math.round(Number(overlayOpacityInput.value) * 100)}%`;
+    vignetteValue.textContent = `${Math.round(Number(vignetteInput.value) * 100)}%`;
     emblemFlashValue.textContent = `${Math.round(Number(emblemFlashInput.value) * 100)}%`;
     panelOpacityValue.textContent = `${Math.round(Number(panelOpacityInput.value) * 100)}%`;
   }
@@ -2173,6 +2178,7 @@
       line2Input,
       overlayColorInput,
       overlayOpacityInput,
+      vignetteInput,
       emblemFlashInput,
       panelOpacityInput,
       emblemEffectSelect,
