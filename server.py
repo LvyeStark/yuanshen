@@ -235,7 +235,6 @@ def ensure_live_photo_helper() -> Path:
     if helper.exists():
         return helper
     source = ROOT / "tools" / "live-photo-pair.swift"
-    info_plist = ROOT / "tools" / "live-photo-helper-Info.plist"
     xcrun = shutil.which("xcrun")
     if sys.platform != "darwin" or not xcrun:
         raise ExportError("Live Photo 导出需要 macOS 与 Apple Swift 工具链。")
@@ -244,21 +243,7 @@ def ensure_live_photo_helper() -> Path:
             return helper
         try:
             result = subprocess.run(
-                [
-                    xcrun,
-                    "swiftc",
-                    str(source),
-                    "-o",
-                    str(helper),
-                    "-Xlinker",
-                    "-sectcreate",
-                    "-Xlinker",
-                    "__TEXT",
-                    "-Xlinker",
-                    "__info_plist",
-                    "-Xlinker",
-                    str(info_plist),
-                ],
+                [xcrun, "swiftc", str(source), "-o", str(helper)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=180,
@@ -269,18 +254,6 @@ def ensure_live_photo_helper() -> Path:
         if result.returncode != 0 or not helper.exists():
             detail = result.stderr.decode("utf-8", errors="replace").strip()
             raise ExportError(f"Live Photo 配对工具编译失败：{detail}")
-        codesign = shutil.which("codesign")
-        if codesign:
-            signed = subprocess.run(
-                [codesign, "--force", "--sign", "-", str(helper)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                timeout=30,
-                check=False,
-            )
-            if signed.returncode != 0:
-                detail = signed.stderr.decode("utf-8", errors="replace").strip()
-                raise ExportError(f"Live Photo 导入工具签名失败：{detail}")
     return helper
 
 
@@ -829,7 +802,14 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
 
     def handle_live_photo_import(self, import_token: str) -> None:
         archive_path = LIVE_PHOTO_IMPORTS.get(import_token)
-        import_directory = SOURCE_TEMP_ROOT / f"import-{uuid.uuid4().hex}"
+        directory_name = f"{archive_path.stem}-iphone"
+        import_directory = OUTPUTS / directory_name
+        for index in range(2, 10_000):
+            if not import_directory.exists():
+                break
+            import_directory = OUTPUTS / f"{directory_name}-{index}"
+        else:
+            raise ExportError("无法为 iPhone Live Photo 配对文件分配目录。")
         import_directory.mkdir(parents=True, exist_ok=False)
         try:
             with zipfile.ZipFile(archive_path) as archive:
@@ -837,36 +817,39 @@ class ExportRequestHandler(SimpleHTTPRequestHandler):
                 video_entries = [entry for entry in archive.infolist() if Path(entry.filename).suffix.lower() == ".mov"]
                 if len(photo_entries) != 1 or len(video_entries) != 1:
                     raise ExportError("Live Photo 配对包中的 HEIC/MOV 资源不完整。")
-                photo_path = import_directory / f"paired-photo{Path(photo_entries[0].filename).suffix}"
-                video_path = import_directory / "paired-video.MOV"
+                photo_path = import_directory / clean_source_name(Path(photo_entries[0].filename).name)
+                video_path = import_directory / clean_source_name(Path(video_entries[0].filename).name)
                 with archive.open(photo_entries[0]) as source_file, photo_path.open("wb") as target_file:
                     shutil.copyfileobj(source_file, target_file)
                 with archive.open(video_entries[0]) as source_file, video_path.open("wb") as target_file:
                     shutil.copyfileobj(source_file, target_file)
 
-            helper = ensure_live_photo_helper()
+            open_tool = shutil.which("open")
+            if sys.platform != "darwin" or not open_tool:
+                raise ExportError("只能在 macOS 上把 Live Photo 配对文件交给“照片”。")
             result = subprocess.run(
-                [str(helper), "--import-photos", str(photo_path), str(video_path)],
-                stdout=subprocess.PIPE,
+                [open_tool, "-a", "Photos", str(photo_path), str(video_path)],
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
-                timeout=420,
+                timeout=30,
                 check=False,
             )
             if result.returncode != 0:
                 detail = result.stderr.decode("utf-8", errors="replace").strip()
-                raise ExportError(f"导入“照片”失败：{detail or '未知错误。'}")
-            local_identifier = result.stdout.decode("utf-8", errors="replace").strip()
+                raise ExportError(f"无法打开 Mac“照片”：{detail or '未知错误。'}")
             LIVE_PHOTO_IMPORTS.remove(import_token)
+            relative_directory = import_directory.relative_to(ROOT).as_posix()
             self.send_json(
                 HTTPStatus.OK,
                 {
                     "ok": True,
-                    "message": "已导入 Mac“照片”为 Live Photo，开启 iCloud 照片后会自动同步到 iPhone。",
-                    "localIdentifier": local_identifier,
+                    "message": "已把 HEIC 与 MOV 一起交给 Mac“照片”，请在“照片”中完成导入。",
+                    "pairDirectory": relative_directory,
                 },
             )
-        finally:
+        except Exception:
             shutil.rmtree(import_directory, ignore_errors=True)
+            raise
 
     def handle_cancel(self, session_id: str) -> None:
         session = SESSIONS.remove(session_id)

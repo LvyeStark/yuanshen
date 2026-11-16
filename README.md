@@ -2,7 +2,7 @@
 
 把一张截图变成「任务完成」时刻的本地网页工具。上传图片或视频后，可以编辑任务文字、切换地区徽记、调整遮罩与粒子，然后导出带任务完成风格叠层的 PNG 图片或动画视频。
 
-当前版本：**2.1**（iPhone Live Photo 一键导入版）· 原作者 **[Morri-Echo](https://github.com/Morri-Echo)** · 现作者 **[LvyeStark](https://github.com/LvyeStark)**
+当前版本：**2.2**（iPhone Live Photo 系统照片交接版）· 原作者 **[Morri-Echo](https://github.com/Morri-Echo)** · 现作者 **[LvyeStark](https://github.com/LvyeStark)**
 
 > 非官方同人工具：代码以 AGPL-3.0 开源；《原神》相关素材版权归 © miHoYo / HoYoverse 所有，详见文末[许可与素材声明](#许可与素材声明)。
 
@@ -18,7 +18,7 @@
 - **八类徽记入场**：下方升起、缩放回弹、旋转展开、左右滑入、翻转显形、螺旋汇聚与上方落定；可与光效独立组合，也可按不同徽记自动匹配。
 - **金色文字底带**：“任务完成”和“未完待续”使用中心淡金、两侧透明的可调柔光带，标题同步为温暖的高亮白色。
 - **动画预览**：任务文字、徽记与粒子的统一时间线，可先预览再导出。
-- **三格式导出**：PNG 图片、H.265 MP4，以及写入 Apple 配对标识和静态帧时间的 iPhone Live Photo（HEIC + H.265 MOV）；生成后可一键导入 Mac“照片”，由 iCloud 以 iPhone 可识别的 Live Photo 资产形式同步；支持标准 8K（7680×4320）与相机原尺寸 8256×5504。
+- **三格式导出**：PNG 图片、H.265 MP4，以及写入 Apple 配对标识和静态帧时间的 iPhone Live Photo（HEIC + H.265 MOV）；生成后可一键把配对资源交给 Mac“照片”，无需授予本工具照片库权限，导入后可由 iCloud 同步到 iPhone；支持标准 8K（7680×4320）与相机原尺寸 8256×5504。
 - **文件名与元数据**：视频名称从原素材名称生成；本地 FFmpeg 导出会尽量继承拍摄时间、设备、位置、尺寸和曝光等可映射到 MP4 的元数据。
 - **工作台皮肤**：本地循环背景视频与交互式 3D 景深粒子，仅作编辑器外观，不会进入导出画面。
 
@@ -28,6 +28,7 @@
 
 | 版本 | 作者阶段 | 新增能力 |
 | --- | --- | --- |
+| **v2.2** | LvyeStark | 移除依赖临时签名辅助程序的 PhotoKit 直写方式，改为由终端把已配对的 HEIC + MOV 一起交给 Apple“照片”导入；不需要给网页、Python 或导入器授予照片库权限。 |
 | **v2.1** | LvyeStark | 封面升级为 iPhone 原生常用的 HEIC；Live Photo 生成后不再自动下载 ZIP，改为一键通过 PhotoKit 把 HEIC 与 pairedVideo MOV 创建为 Mac“照片”中的单个 Live Photo 资产，可由 iCloud 照片自动同步到 iPhone；ZIP 仅作可选备份。 |
 | **v2.0** | LvyeStark | 新增 Apple Live Photo 导出：生成精确 3.0 秒的 H.265 MOV 与封面 JPG，两者写入相同资源标识及静态帧时间，并打包下载；同时修正文字为暖白高亮及中心淡金、两侧透明的柔光底带。 |
 | **v1.9** | LvyeStark | 导出视频直接沿用原文件主名并自动避免覆盖；本地服务读取原素材，尽量把拍摄时间、相机厂商/型号、GPS、尺寸、方向和曝光摘要写入 MP4 元数据。 |
@@ -127,8 +128,8 @@ node tests\edge-smoke.js
 ## 视频导出说明
 
 - PNG 导出保持当前静态画面布局。
-- Live Photo 导出固定为 3.0 秒、30 fps，封面使用 HEIC。iPhone 的 Live Photo 底层就是配对照片与 MOV，不存在另一种通用单文件格式；页面会保留配对 ZIP 备份，并提供“导入 Mac 照片”按钮将它们创建为单个 Live Photo 资产。
-- 首次导入时 macOS 会请求“照片”添加权限；授权后，如 Mac 与 iPhone 均开启 iCloud 照片，资产会以 Live Photo 形式自动同步到 iPhone。
+- Live Photo 导出固定为 3.0 秒、30 fps，封面使用 HEIC。iPhone 的 Live Photo 底层就是配对照片与 MOV，不存在另一种通用单文件格式；页面会保留配对 ZIP 备份，并提供“用 Mac 照片打开”按钮。
+- 按钮会把 HEIC 与 MOV 解压到 `outputs/` 下的独立目录，再由 macOS `open -a Photos` 同时交给 Apple“照片”。这个流程不需要给网页、Python 或导入器照片库权限；导入后，如 Mac 与 iPhone 均开启 iCloud 照片，会自动同步。
 - Live Photo 使用 macOS Apple 媒体框架写入相同的 `com.apple.quicktime.content.identifier`、HEIC MakerApple 配对字段及 `com.apple.quicktime.still-image-time` 时间轨道，因此需要 macOS 本地运行。
 - 图片生成的动画视频固定为精确 3.0 秒（30 fps、90 帧），与标准 Live Photo 的三秒动态时长一致。
 - 动画视频会把背景媒体逐帧绘制进任务动画时间线，导出结果不包含源视频音轨。

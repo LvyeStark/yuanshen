@@ -82,12 +82,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=2.1"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=2.2"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=2.1"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=2.1"></script>'),
+  html.indexOf('<script src="js/script.js?v=2.2"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=2.2"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(

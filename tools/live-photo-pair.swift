@@ -4,7 +4,6 @@ import AVFoundation
 import CoreMedia
 import Foundation
 import ImageIO
-import Photos
 import UniformTypeIdentifiers
 
 enum PairError: Error, CustomStringConvertible {
@@ -210,61 +209,6 @@ func validatePair(photoURL: URL, videoURL: URL, assetIdentifier: String) throws 
     }
     guard !videoAsset.tracks(withMediaType: .metadata).isEmpty else {
         throw PairError.message("Live Photo MOV 缺少静态帧时间轨道。")
-    }
-}
-
-func importIntoPhotos(photoURL: URL, videoURL: URL) throws -> String {
-    var authorizationStatus = PHPhotoLibrary.authorizationStatus(for: .addOnly)
-    if authorizationStatus == .notDetermined {
-        let authorizationSemaphore = DispatchSemaphore(value: 0)
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            authorizationStatus = status
-            authorizationSemaphore.signal()
-        }
-        guard authorizationSemaphore.wait(timeout: .now() + 120) == .success else {
-            throw PairError.message("等待“照片”权限超时。")
-        }
-    }
-    guard authorizationStatus == .authorized || authorizationStatus == .limited else {
-        throw PairError.message("未获得向“照片”添加 Live Photo 的权限。")
-    }
-
-    let completionSemaphore = DispatchSemaphore(value: 0)
-    final class ImportResult: @unchecked Sendable {
-        var identifier: String?
-        var error: Error?
-        var success = false
-    }
-    let result = ImportResult()
-    PHPhotoLibrary.shared().performChanges {
-        let request = PHAssetCreationRequest.forAsset()
-        request.addResource(with: .photo, fileURL: photoURL, options: nil)
-        request.addResource(with: .pairedVideo, fileURL: videoURL, options: nil)
-        result.identifier = request.placeholderForCreatedAsset?.localIdentifier
-    } completionHandler: { success, error in
-        result.success = success
-        result.error = error
-        completionSemaphore.signal()
-    }
-    guard completionSemaphore.wait(timeout: .now() + 300) == .success else {
-        throw PairError.message("导入“照片”超时。")
-    }
-    guard result.success else {
-        throw PairError.message(result.error?.localizedDescription ?? "Live Photo 导入“照片”失败。")
-    }
-    return result.identifier ?? "imported"
-}
-
-if CommandLine.arguments.count == 4 && CommandLine.arguments[1] == "--import-photos" {
-    do {
-        let identifier = try importIntoPhotos(
-            photoURL: URL(fileURLWithPath: CommandLine.arguments[2]),
-            videoURL: URL(fileURLWithPath: CommandLine.arguments[3])
-        )
-        print(identifier)
-        exit(0)
-    } catch {
-        fail(String(describing: error))
     }
 }
 

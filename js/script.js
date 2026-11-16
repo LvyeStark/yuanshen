@@ -1508,7 +1508,7 @@
       return;
     }
     if (importUrl) {
-      importLivePhotoButton.textContent = '导入 Mac“照片”并同步到 iPhone';
+      importLivePhotoButton.textContent = '用 Mac“照片”打开并同步到 iPhone';
     }
     importLivePhotoButton.hidden = !importUrl;
     importLivePhotoButton.disabled = false;
@@ -1519,15 +1519,15 @@
       return;
     }
     importLivePhotoButton.disabled = true;
-    activityMessage = '正在请求“照片”权限并导入 Live Photo...';
+    activityMessage = '正在解压 HEIC + MOV 配对文件并用 Mac“照片”打开...';
     updateStatusText();
     try {
       const response = await fetch(livePhotoImportUrl, { method: 'POST' });
       const result = await readJsonResponse(response);
-      activityMessage = result.message || '已导入 Mac“照片”。';
-      importLivePhotoButton.textContent = '已导入“照片”';
+      activityMessage = result.message || '已用 Mac“照片”打开。';
+      importLivePhotoButton.textContent = '已交给“照片”';
     } catch (error) {
-      activityMessage = `Live Photo 导入失败：${error.message}`;
+      activityMessage = `Live Photo 打开失败：${error.message}`;
       importLivePhotoButton.disabled = false;
     }
     updateStatusText();
