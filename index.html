@@ -231,18 +231,36 @@
 
           <fieldset class="field radio-group export-mode-group">
             <legend>导出格式</legend>
-            <div class="segmented-options">
+            <div class="export-format-grid">
               <label>
                 <input type="radio" name="exportMode" value="image" checked>
-                <span>图片 PNG</span>
+                <span class="export-format-card">
+                  <span class="export-format-code">PNG</span>
+                  <span class="export-format-copy">
+                    <strong>高清图片</strong>
+                    <small>静态完成画面</small>
+                  </span>
+                </span>
               </label>
               <label>
                 <input type="radio" name="exportMode" value="video">
-                <span>动画视频 H.265 MP4</span>
+                <span class="export-format-card">
+                  <span class="export-format-code">MP4</span>
+                  <span class="export-format-copy">
+                    <strong>H.265 动画</strong>
+                    <small>3 秒完成演出</small>
+                  </span>
+                </span>
               </label>
               <label>
                 <input type="radio" name="exportMode" value="livephoto">
-                <span>Apple Live Photo</span>
+                <span class="export-format-card">
+                  <span class="export-format-code">LIVE</span>
+                  <span class="export-format-copy">
+                    <strong>Live Photo</strong>
+                    <small>iPhone · HEIC + MOV</small>
+                  </span>
+                </span>
               </label>
             </div>
           </fieldset>
@@ -259,11 +277,16 @@
           </button>
         </div>
 
-        <p id="statusText" class="status-text" aria-live="polite">上传图片后可导出生成结果。</p>
-        <a id="downloadLink" class="download-link" hidden>保存生成的文件</a>
-        <button id="importLivePhotoButton" class="secondary-button import-live-photo-button" type="button" hidden>
-          用 Mac“照片”打开并同步到 iPhone
-        </button>
+        <div class="export-feedback">
+          <p id="statusText" class="status-text" aria-live="polite">上传图片后可导出生成结果。</p>
+          <div class="export-result-actions">
+            <button id="importLivePhotoButton" class="result-action result-action-primary import-live-photo-button" type="button" hidden>
+              <span>用 Mac“照片”打开</span>
+              <small>导入后可通过 iCloud 同步至 iPhone</small>
+            </button>
+            <a id="downloadLink" class="result-action result-action-secondary download-link" hidden>保存生成的文件</a>
+          </div>
+        </div>
       </section>
 
       <section class="preview-panel" aria-label="图片预览">
@@ -288,8 +311,8 @@
       </section>
     </main>
 
-    <script src="js/renderer-core.js?v=2.2"></script>
-    <script src="js/script.js?v=2.2"></script>
-    <script src="js/editor-particles.js?v=2.2"></script>
+    <script src="js/renderer-core.js?v=2.3"></script>
+    <script src="js/script.js?v=2.3"></script>
+    <script src="js/editor-particles.js?v=2.3"></script>
   </body>
 </html>

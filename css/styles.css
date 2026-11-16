@@ -1412,6 +1412,239 @@ body.capture-mode .canvas-stage::after {
   display: none;
 }
 
+/* Export workflow */
+.export-format-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.export-format-grid label {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.export-format-grid input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.export-format-card {
+  position: relative;
+  display: grid;
+  min-height: 86px;
+  align-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(91, 111, 130, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.export-format-card::after {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1px solid rgba(83, 106, 128, 0.24);
+  border-radius: 50%;
+  color: transparent;
+  content: "\2713";
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.export-format-code {
+  width: max-content;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: rgba(49, 95, 137, 0.08);
+  color: #315f89;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+}
+
+.export-format-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.export-format-copy strong {
+  margin-left: 0;
+  overflow: hidden;
+  color: #293541;
+  font-size: 12px;
+  font-weight: 720;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-format-copy small {
+  overflow: hidden;
+  color: #778391;
+  font-size: 9px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-format-grid label:hover .export-format-card {
+  border-color: rgba(49, 95, 137, 0.4);
+  background: rgba(255, 255, 255, 0.82);
+  transform: translateY(-1px);
+}
+
+.export-format-grid input:focus-visible + .export-format-card {
+  outline: 3px solid rgba(61, 111, 159, 0.17);
+  outline-offset: 2px;
+}
+
+.export-format-grid input:checked + .export-format-card {
+  border-color: #315f89;
+  background: linear-gradient(145deg, #376d9d, #315f89);
+  box-shadow: 0 8px 18px rgba(49, 95, 137, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.export-format-grid input:checked + .export-format-card::after {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.export-format-grid input:checked + .export-format-card .export-format-code {
+  background: rgba(255, 255, 255, 0.16);
+  color: #eaf5ff;
+}
+
+.export-format-grid input:checked + .export-format-card strong,
+.export-format-grid input:checked + .export-format-card small {
+  color: #ffffff;
+}
+
+.action-stack {
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.export-feedback {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 11px;
+  border: 1px solid rgba(91, 111, 130, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.export-feedback .status-text {
+  min-height: 0;
+  margin: 0;
+  padding: 3px 4px 3px 22px;
+  border: 0;
+  background: transparent;
+  color: #49665d;
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.export-feedback .status-text::before {
+  top: 9px;
+  left: 5px;
+}
+
+.export-result-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.result-action {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  border-radius: 8px;
+  font: inherit;
+  text-align: center;
+}
+
+.result-action-primary {
+  display: grid;
+  min-height: 48px;
+  margin: 0;
+  place-content: center;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid #315f89;
+  background: #315f89;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.result-action-primary span {
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.result-action-primary small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.result-action-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.result-action-primary:disabled {
+  border-color: rgba(73, 120, 103, 0.24);
+  background: rgba(73, 120, 103, 0.1);
+  color: #497867;
+  cursor: default;
+}
+
+.export-result-actions .download-link {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(49, 95, 137, 0.2);
+  background: rgba(49, 95, 137, 0.045);
+  color: #315f89;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.export-result-actions .download-link:hover {
+  border-color: rgba(49, 95, 137, 0.38);
+  background: rgba(49, 95, 137, 0.08);
+}
+
+.export-result-actions .download-link[hidden],
+.export-result-actions .import-live-photo-button[hidden] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1444,6 +1677,23 @@ body.capture-mode .canvas-stage::after {
 }
 
 @media (max-width: 560px) {
+  .export-format-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .export-format-card {
+    min-height: 62px;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: center;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+  }
+
+  .action-stack {
+    grid-template-columns: 1fr;
+  }
+
   .segmented-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

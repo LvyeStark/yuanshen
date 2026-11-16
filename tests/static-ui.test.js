@@ -82,12 +82,12 @@ assert.equal(
   'the previous GIF skin should no longer be referenced'
 );
 assert.ok(
-  html.includes('<script src="js/editor-particles.js?v=2.2"></script>'),
+  html.includes('<script src="js/editor-particles.js?v=2.3"></script>'),
   'the editor particle layer should be loaded'
 );
 assert.ok(
-  html.indexOf('<script src="js/script.js?v=2.2"></script>')
-    < html.indexOf('<script src="js/editor-particles.js?v=2.2"></script>'),
+  html.indexOf('<script src="js/script.js?v=2.3"></script>')
+    < html.indexOf('<script src="js/editor-particles.js?v=2.3"></script>'),
   'capture mode should be established before the editor particle layer initializes'
 );
 assert.match(
@@ -106,8 +106,18 @@ assert.ok(
 
 assert.match(
   html,
-  /<input type="radio" name="exportMode" value="image" checked>\s*<span>[^<]*<\/span>/u,
+  /<input type="radio" name="exportMode" value="image" checked>\s*<span class="export-format-card">[\s\S]*?<span class="export-format-code">PNG<\/span>[\s\S]*?<strong>高清图片<\/strong>/u,
   'image export should remain the default export mode'
+);
+
+assert.ok(
+  html.includes('class="export-format-grid"'),
+  'export modes should use a dedicated card grid'
+);
+
+assert.ok(
+  html.includes('class="export-feedback"') && html.includes('class="export-result-actions"'),
+  'export status and generated-file actions should live in a separate result card'
 );
 
 for (const sizeMode of ['16:9', '4:3', '9:16', 'source', '8K']) {
@@ -176,14 +186,27 @@ assert.match(
 
 assert.match(
   html,
-  /<input type="radio" name="exportMode" value="video">\s*<span>[^<]*<\/span>/u,
+  /<input type="radio" name="exportMode" value="video">\s*<span class="export-format-card">[\s\S]*?<span class="export-format-code">MP4<\/span>[\s\S]*?<strong>H\.265 动画<\/strong>/u,
   'video export should be available as an export mode'
 );
 
 assert.match(
   html,
-  /<input type="radio" name="exportMode" value="livephoto">\s*<span>Apple Live Photo<\/span>/u,
+  /<input type="radio" name="exportMode" value="livephoto">\s*<span class="export-format-card">[\s\S]*?<span class="export-format-code">LIVE<\/span>[\s\S]*?<strong>Live Photo<\/strong>/u,
   'Apple Live Photo should be available as an export mode'
+);
+
+assert.match(
+  styles,
+  /\.export-format-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/u,
+  'desktop export modes should be presented as three equal cards'
+);
+
+assert.ok(
+  html.includes('class="result-action result-action-secondary download-link"')
+    && styles.includes('.result-action-primary')
+    && styles.includes('.export-result-actions .download-link'),
+  'primary Photos handoff and secondary backup download should have distinct visual hierarchy'
 );
 
 assert.match(

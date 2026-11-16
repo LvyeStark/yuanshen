@@ -1508,7 +1508,7 @@
       return;
     }
     if (importUrl) {
-      importLivePhotoButton.textContent = '用 Mac“照片”打开并同步到 iPhone';
+      importLivePhotoButton.innerHTML = '<span>用 Mac“照片”打开</span><small>导入后可通过 iCloud 同步至 iPhone</small>';
     }
     importLivePhotoButton.hidden = !importUrl;
     importLivePhotoButton.disabled = false;
@@ -1525,7 +1525,7 @@
       const response = await fetch(livePhotoImportUrl, { method: 'POST' });
       const result = await readJsonResponse(response);
       activityMessage = result.message || '已用 Mac“照片”打开。';
-      importLivePhotoButton.textContent = '已交给“照片”';
+      importLivePhotoButton.innerHTML = '<span>已交给“照片”</span><small>请在照片窗口中确认导入</small>';
     } catch (error) {
       activityMessage = `Live Photo 打开失败：${error.message}`;
       importLivePhotoButton.disabled = false;

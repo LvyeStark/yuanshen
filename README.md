@@ -2,7 +2,7 @@
 
 把一张截图变成「任务完成」时刻的本地网页工具。上传图片或视频后，可以编辑任务文字、切换地区徽记、调整遮罩与粒子，然后导出带任务完成风格叠层的 PNG 图片或动画视频。
 
-当前版本：**2.2**（iPhone Live Photo 系统照片交接版）· 原作者 **[Morri-Echo](https://github.com/Morri-Echo)** · 现作者 **[LvyeStark](https://github.com/LvyeStark)**
+当前版本：**2.3**（导出工作流界面重设计版）· 原作者 **[Morri-Echo](https://github.com/Morri-Echo)** · 现作者 **[LvyeStark](https://github.com/LvyeStark)**
 
 > 非官方同人工具：代码以 AGPL-3.0 开源；《原神》相关素材版权归 © miHoYo / HoYoverse 所有，详见文末[许可与素材声明](#许可与素材声明)。
 
@@ -28,6 +28,7 @@
 
 | 版本 | 作者阶段 | 新增能力 |
 | --- | --- | --- |
+| **v2.3** | LvyeStark | 重设计输出工作流：PNG、H.265 MP4 与 Live Photo 使用等宽信息卡；预览和导出操作层级更清晰；生成状态、打开“照片”与下载备份进入独立结果卡片，并完善窄屏自适应，避免文字和按钮重叠。 |
 | **v2.2** | LvyeStark | 移除依赖临时签名辅助程序的 PhotoKit 直写方式，改为由终端把已配对的 HEIC + MOV 一起交给 Apple“照片”导入；不需要给网页、Python 或导入器授予照片库权限。 |
 | **v2.1** | LvyeStark | 封面升级为 iPhone 原生常用的 HEIC；Live Photo 生成后不再自动下载 ZIP，改为一键通过 PhotoKit 把 HEIC 与 pairedVideo MOV 创建为 Mac“照片”中的单个 Live Photo 资产，可由 iCloud 照片自动同步到 iPhone；ZIP 仅作可选备份。 |
 | **v2.0** | LvyeStark | 新增 Apple Live Photo 导出：生成精确 3.0 秒的 H.265 MOV 与封面 JPG，两者写入相同资源标识及静态帧时间，并打包下载；同时修正文字为暖白高亮及中心淡金、两侧透明的柔光底带。 |
