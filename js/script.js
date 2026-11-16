@@ -18,10 +18,41 @@
     Object.entries(EMBLEM_ASSETS).map(([key, { label, previewSrc }]) => [key, { label, src: previewSrc }])
   ));
   const CONTINUATION_PATH = 'assets/weiwandaixu-clean.png';
+  const TASK_PRESETS = [
+    ['蒙德', '序章 第一幕 完成', '捕风的异乡人', 'mengdei'],
+    ['蒙德', '捕风的归客 其二 完成', '为了没有眼泪的重逢', 'mengdei'],
+    ['蒙德', '捕风的归客 其三 完成', '巨龙与自由的变奏', 'mengdei'],
+    ['蒙德', '捕风的归客 其一 完成', '为了没有眼泪的明天', 'mengdei'],
+    ['璃月', '春曦画桃符·第二回 完成', '往生堂三日无主，玉京台遣将调兵', 'liyue'],
+    ['璃月', '奔霄颂玉轮 第一幕 完成', '在云间', 'liyue'],
+    ['璃月', '奔霄颂玉轮 第二幕 完成', '在岩间', 'liyue'],
+    ['璃月', '奔霄颂玉轮 第三幕 完成', '在人间', 'liyue'],
+    ['璃月', '奔霄颂玉轮·尾声 完成', '白马闲游记', 'liyue'],
+    ['稻妻', '第二章 序幕 完成', '振袖秋风问红叶', 'daoqi'],
+    ['须弥', '彩糖与蔷薇的幻色颂 第三份礼物 完成', '赠予她回忆', 'xuni'],
+    ['枫丹', '第四章 第二幕 完成', '仿若无因飘落的轻雨', 'fengdan'],
+    ['枫丹', '第四章 第五幕 完成', '罪人舞步旋', 'fengdan'],
+    ['枫丹', '第四章 第六幕 完成', '睡前故事', 'fengdan'],
+    ['枫丹', '和旋舞剧·第一幕 完成', '一夜建成的乐园', 'fengdan'],
+    ['枫丹', '和旋舞剧·第二幕 完成', '一波三折的辗转', 'fengdan'],
+    ['枫丹', '和旋舞剧·第三幕 完成', '一切代价的回旋', 'fengdan'],
+    ['纳塔', '第五章 第二幕 完成', '黑石湮落白石下', 'nata'],
+    ['纳塔', '磷星之章 第一幕 完成', '星与夜的低语', 'nata'],
+    ['纳塔', '第五章 第六幕 完成', '你存在的时空', 'nata'],
+    ['纳塔', '荣花竞捷之争 第二幕 完成', '因愧疚而生的医术', 'nata'],
+    ['纳塔', '荣花竞捷之争 第三幕 完成', '团结的魔法', 'nata'],
+    ['悠悠度假村', '绘夏！烈日？度假村！其一 完成', '出发！无忧无虑的度假之旅？', 'youyoudujiacun'],
+    ['悠悠度假村', '绘夏！烈日？度假村！其二 完成', '畅玩！举目之处皆为画布！', 'youyoudujiacun'],
+    ['悠悠度假村', '绘夏！烈日？度假村！其三 完成', '惊遇！等待众人的将是…？', 'youyoudujiacun'],
+    ['悠悠度假村', '绘夏！烈日？度假村！其四 完成', '收幕！将夏夜染作缤纷！', 'youyoudujiacun'],
+    ['至冬', '第七章 第二幕 完成', '死魂灵的夜曲', 'zhidong'],
+    ['沉玉谷', '赤龙之章 第一幕 完成', '名为故事的魔法', 'liyue'],
+  ].map(([group, line1, line2, emblem]) => ({ group, line1, line2, emblem }));
 
   const imageInput = document.getElementById('imageInput');
   const line1Input = document.getElementById('line1Input');
   const line2Input = document.getElementById('line2Input');
+  const taskPresetSelect = document.getElementById('taskPresetSelect');
   const overlayColorInput = document.getElementById('overlayColorInput');
   const overlayOpacityInput = document.getElementById('overlayOpacityInput');
   const opacityValue = document.getElementById('opacityValue');
@@ -2055,6 +2086,31 @@
   }
 
   function bindEvents() {
+    if (taskPresetSelect) {
+      const groups = new Map();
+      TASK_PRESETS.forEach((preset) => {
+        if (!groups.has(preset.group)) {
+          const group = document.createElement('optgroup');
+          group.label = preset.group;
+          taskPresetSelect.appendChild(group);
+          groups.set(preset.group, group);
+        }
+        const option = document.createElement('option');
+        option.value = String(TASK_PRESETS.indexOf(preset));
+        option.textContent = `${preset.line1}｜${preset.line2}`;
+        groups.get(preset.group).appendChild(option);
+      });
+      taskPresetSelect.addEventListener('change', () => {
+        const preset = TASK_PRESETS[Number(taskPresetSelect.value)];
+        if (!preset) return;
+        line1Input.value = preset.line1;
+        line2Input.value = preset.line2;
+        const emblem = emblemPicker.querySelector(`input[name="emblem"][value="${preset.emblem}"]`);
+        if (emblem) emblem.checked = true;
+        stopAnimationPreview({ renderFinal: false });
+        render();
+      });
+    }
     imageInput.addEventListener('change', () => {
       const file = imageInput.files?.[0];
       if (!file) {
@@ -2082,6 +2138,9 @@
         return;
       }
       control.addEventListener('input', () => {
+        if ((control === line1Input || control === line2Input) && taskPresetSelect) {
+          taskPresetSelect.value = '';
+        }
         stopAnimationPreview({ renderFinal: false });
         updateEffectValueLabels();
         render();
