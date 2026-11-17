@@ -288,30 +288,16 @@ test('video export settings use an exact three-second Live Photo timeline', () =
   });
 });
 
-test('animated overlay stages its elements across almost the full video timeline', () => {
-  const settings = getVideoExportSettings();
-  const at600ms = getAnimatedOverlayState(600 / settings.durationMs);
-  assert.ok(at600ms.emblemAlpha > 0.7);
-  assert.equal(at600ms.line1Alpha, 0);
-  assert.equal(at600ms.line2Alpha, 0);
-  assert.equal(at600ms.taskBandProgress, 0);
-  assert.equal(at600ms.continuationAlpha, 0);
-
-  const at1600ms = getAnimatedOverlayState(1600 / settings.durationMs);
-  assert.equal(at1600ms.emblemAlpha, 1);
-  assert.ok(at1600ms.line1Alpha > 0.98);
-  assert.ok(at1600ms.line2Alpha > 0.8);
-  assert.ok(at1600ms.dividerProgress > 0.2);
-  assert.equal(at1600ms.taskBandProgress, 0);
-  assert.equal(at1600ms.continuationAlpha, 0);
-
-  const at2400ms = getAnimatedOverlayState(2400 / settings.durationMs);
-  assert.ok(at2400ms.taskBandProgress > 0.7);
-  assert.equal(at2400ms.continuationAlpha, 0);
-
-  const at3000ms = getAnimatedOverlayState(3000 / settings.durationMs);
-  assert.equal(at3000ms.taskBandProgress, 1);
-  assert.ok(at3000ms.continuationAlpha > 0.99);
+test('all overlay elements reveal together throughout the animation', () => {
+  for (const progress of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+    const state = getAnimatedOverlayState(progress);
+    assert.ok(state.emblemAlpha > 0 && state.emblemAlpha < 1);
+    assert.equal(state.line1Alpha, state.emblemAlpha);
+    assert.equal(state.line2Alpha, state.emblemAlpha);
+    assert.equal(state.dividerProgress, state.emblemAlpha);
+    assert.equal(state.taskBandProgress, state.emblemAlpha);
+    assert.equal(state.continuationAlpha, state.emblemAlpha);
+  }
 });
 
 test('animated overlay starts hidden and ends matching the still layout', () => {
@@ -444,34 +430,6 @@ test('particle frame values stay finite and inside the requested canvas', () => 
     assert.ok(particle.radius > 0);
     assert.ok(particle.alpha >= 0 && particle.alpha <= particle.maxAlpha);
   }
-});
-
-test('task complete and continuation occupy the final second of the animation', () => {
-  const settings = getVideoExportSettings();
-  const beforeTask = getAnimatedOverlayState(2000 / settings.durationMs);
-  assert.equal(beforeTask.emblemAlpha, 1);
-  assert.equal(beforeTask.line1Alpha, 1);
-  assert.ok(beforeTask.line2Alpha > 0.98);
-  assert.ok(beforeTask.dividerProgress > 0.9);
-  assert.equal(beforeTask.taskBandProgress, 0);
-  assert.equal(beforeTask.continuationAlpha, 0);
-
-  const taskVisible = getAnimatedOverlayState(2400 / settings.durationMs);
-  assert.ok(taskVisible.taskBandProgress > 0.7);
-  assert.equal(taskVisible.continuationAlpha, 0);
-
-  const continuationVisible = getAnimatedOverlayState(2800 / settings.durationMs);
-  assert.equal(continuationVisible.taskBandProgress, 1);
-  assert.ok(continuationVisible.continuationAlpha > 0.8);
-  assert.ok(continuationVisible.continuationAlpha < 0.9);
-
-  const nearEnd = getAnimatedOverlayState(2970 / settings.durationMs);
-  assert.equal(nearEnd.overlayAlpha, 1);
-  assert.equal(nearEnd.emblemAlpha, 1);
-  assert.equal(nearEnd.line2Alpha, 1);
-  assert.equal(nearEnd.dividerProgress, 1);
-  assert.equal(nearEnd.taskBandProgress, 1);
-  assert.equal(nearEnd.continuationAlpha, 1);
 });
 
 test('animation completes at the selected time and holds until the end', () => {

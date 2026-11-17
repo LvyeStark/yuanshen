@@ -199,10 +199,12 @@ function pulseProgress(progress, start, end) {
 
 function getAnimatedOverlayState(progress) {
   const clamped = clampProgress(progress);
+  const revealProgress = rangeProgress(clamped, 0.02, 0.98);
+  const reveal = easeInOutCubic(revealProgress);
   return {
     progress: clamped,
     overlayAlpha: easeOutCubic(rangeProgress(clamped, 0, 0.22)),
-    emblemAlpha: easeOutCubic(rangeProgress(clamped, 0.05, 0.38)),
+    emblemAlpha: reveal,
     emblemScale: 0.76 + easeOutBack(rangeProgress(clamped, 0.06, 0.44)) * 0.24,
     emblemFlash: pulseProgress(clamped, 0.16, 0.4),
     emblemRingProgress: easeOutCubic(rangeProgress(clamped, 0.04, 0.5)),
@@ -215,13 +217,13 @@ function getAnimatedOverlayState(progress) {
     emblemSweepAlpha: pulseProgress(clamped, 0.09, 0.66),
     emblemBurstProgress: easeOutCubic(rangeProgress(clamped, 0.16, 0.66)),
     emblemBurstAlpha: pulseProgress(clamped, 0.12, 0.74),
-    line1Alpha: easeOutCubic(rangeProgress(clamped, 0.28, 0.56)),
-    line1OffsetY: (1 - easeOutCubic(rangeProgress(clamped, 0.28, 0.56))) * 16,
-    line2Alpha: easeOutCubic(rangeProgress(clamped, 0.38, 0.66)),
-    line2Scale: 0.94 + easeOutBack(rangeProgress(clamped, 0.38, 0.66)) * 0.06,
-    dividerProgress: easeOutCubic(rangeProgress(clamped, 0.48, 0.72)),
-    taskBandProgress: easeInOutCubic(rangeProgress(clamped, 0.68, 0.88)),
-    continuationAlpha: easeInOutCubic(rangeProgress(clamped, 0.82, 0.99)),
+    line1Alpha: reveal,
+    line1OffsetY: (1 - reveal) * 16,
+    line2Alpha: reveal,
+    line2Scale: 0.94 + easeOutBack(revealProgress) * 0.06,
+    dividerProgress: reveal,
+    taskBandProgress: reveal,
+    continuationAlpha: reveal,
   };
 }
 
