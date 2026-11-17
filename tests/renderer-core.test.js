@@ -474,14 +474,15 @@ test('task complete and continuation occupy the final second of the animation', 
   assert.equal(nearEnd.continuationAlpha, 1);
 });
 
-test('image exports animate from the beginning while video exports animate at the end', () => {
-  const settings = getVideoExportSettings();
-  assert.equal(getTimelineProgress(0, settings.durationMs, 'image'), 0);
-  assert.equal(getTimelineProgress(1500, settings.durationMs, 'image'), 0.5);
-  assert.equal(getTimelineProgress(0, 10_000, 'video'), 0);
-  assert.equal(getTimelineProgress(6000, 10_000, 'video'), 0);
-  assert.ok(getTimelineProgress(7200, 10_000, 'video') > 0);
-  assert.equal(getTimelineProgress(10_000, 10_000, 'video'), 1);
+test('animation completes at the selected time and holds until the end', () => {
+  assert.equal(getTimelineProgress(0), 0);
+  assert.equal(getTimelineProgress(1000), 0.5);
+  assert.equal(getTimelineProgress(2000), 1);
+  assert.equal(getTimelineProgress(3000), 1);
+  assert.equal(getTimelineProgress(500, 1000), 0.5);
+  assert.equal(getTimelineProgress(1000, 1000), 1);
+  assert.equal(getTimelineProgress(1500, 3000), 0.5);
+  assert.equal(getTimelineProgress(3000, 3000), 1);
 });
 
 test('overlay layout keeps the first two text lines separated', () => {

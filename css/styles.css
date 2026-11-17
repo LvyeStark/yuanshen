@@ -1711,3 +1711,21 @@ body.capture-mode .canvas-stage::after {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.animation-duration-field {
+  margin-top: 16px;
+}
+
+.animation-duration-field .range-field {
+  display: grid;
+}
+
+.animation-duration-field .range-field > span {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.animation-duration-field strong {
+  color: var(--accent);
+}

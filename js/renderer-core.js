@@ -530,14 +530,10 @@ function getMp4CodecCandidates(width, height) {
   return [VIDEO_EXPORT_SETTINGS.mp4Codec];
 }
 
-function getTimelineProgress(elapsedMs, durationMs, mediaType = 'image') {
-  const total = Math.max(1, Number(durationMs) || VIDEO_EXPORT_SETTINGS.durationMs);
+function getTimelineProgress(elapsedMs, animationDurationMs = 2000) {
+  const duration = Math.max(1, Number(animationDurationMs) || 2000);
   const elapsed = Math.max(0, Number(elapsedMs) || 0);
-  if (mediaType === 'video') {
-    const animationStart = Math.max(0, total - VIDEO_EXPORT_SETTINGS.durationMs);
-    return clampProgress((elapsed - animationStart) / VIDEO_EXPORT_SETTINGS.durationMs);
-  }
-  return clampProgress(elapsed / VIDEO_EXPORT_SETTINGS.durationMs);
+  return clampProgress(elapsed / duration);
 }
 
 function normalizeEmblem(value) {

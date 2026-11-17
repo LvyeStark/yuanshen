@@ -109,6 +109,8 @@
   const panelOpacityInput = document.getElementById('panelOpacityInput');
   const panelOpacityValue = document.getElementById('panelOpacityValue');
   const emblemPicker = document.getElementById('emblemPicker');
+  const animationDurationInput = document.getElementById('animationDurationInput');
+  const animationDurationValue = document.getElementById('animationDurationValue');
   const previewAnimationButton = document.getElementById('previewAnimationButton');
   const exportButton = document.getElementById('exportButton');
   const statusText = document.getElementById('statusText');
@@ -1655,10 +1657,12 @@
   }
 
   function getExportDurationMs() {
-    if (uploadedMediaType === 'video' && Number.isFinite(uploadedMedia?.duration) && uploadedMedia.duration > 0) {
-      return Math.round(uploadedMedia.duration * 1000);
-    }
     return videoSettings.durationMs;
+  }
+
+  function getAnimationDurationMs() {
+    const seconds = Number(animationDurationInput.value);
+    return Math.min(videoSettings.durationMs, Math.max(500, (Number.isFinite(seconds) ? seconds : 2) * 1000));
   }
 
   function getVideoFrameCount(durationMs = getExportDurationMs()) {
@@ -1670,13 +1674,14 @@
     frameCount,
     emblems,
     motionMode = currentMotionMode(),
-    durationMs = getExportDurationMs()
+    durationMs = getExportDurationMs(),
+    animationDurationMs = getAnimationDurationMs()
   ) {
     const elapsedMs = (frameIndex / videoSettings.fps) * 1000;
     const progress = frameIndex >= frameCount - 1
       ? 1
-      : getTimelineProgress(elapsedMs, durationMs, uploadedMediaType);
-    render({ emblems, progress, elapsedMs, motionMode, staticFrame: false });
+      : getTimelineProgress(elapsedMs, animationDurationMs);
+    render({ emblems, progress, elapsedMs: Math.min(elapsedMs, animationDurationMs), motionMode, staticFrame: false });
   }
 
   async function prepareMediaFrame(frameIndex) {
@@ -2029,7 +2034,8 @@
 
     stopAnimationPreview({ renderFinal: false });
     const startedAt = performance.now();
-    const previewDurationMs = uploadedMediaType === 'video' ? getExportDurationMs() : videoSettings.durationMs;
+    const previewDurationMs = getExportDurationMs();
+    const animationDurationMs = getAnimationDurationMs();
     if (uploadedMediaType === 'video') {
       uploadedMedia.currentTime = 0;
       uploadedMedia.play().catch(() => {});
@@ -2045,8 +2051,8 @@
 
     function tick(now) {
       const elapsedMs = now - startedAt;
-      const progress = getTimelineProgress(elapsedMs, previewDurationMs, uploadedMediaType);
-      render({ emblems, progress, elapsedMs, motionMode, staticFrame: false });
+      const progress = getTimelineProgress(elapsedMs, animationDurationMs);
+      render({ emblems, progress, elapsedMs: Math.min(elapsedMs, animationDurationMs), motionMode, staticFrame: false });
       if (elapsedMs < previewDurationMs) {
         previewAnimationFrame = requestAnimationFrame(tick);
         return;
@@ -2059,7 +2065,7 @@
       previewAnimationButton.textContent = '预览动画';
       activityMessage = '动画预览完成，可继续调整或导出视频。';
       updateStatusText();
-      render();
+      render({ emblems, progress: 1, elapsedMs: animationDurationMs, motionMode, staticFrame: false });
     }
 
     previewAnimationFrame = requestAnimationFrame(tick);
@@ -2078,6 +2084,7 @@
     opacityValue.textContent = `${Math.round(Number(overlayOpacityInput.value) * 100)}%`;
     vignetteValue.textContent = `${Math.round(Number(vignetteInput.value) * 100)}%`;
     emblemFlashValue.textContent = `${Math.round(Number(emblemFlashInput.value) * 100)}%`;
+    animationDurationValue.textContent = `${Number(animationDurationInput.value).toFixed(1)} 秒`;
     panelOpacityValue.textContent = `${Math.round(Number(panelOpacityInput.value) * 100)}%`;
   }
 
@@ -2181,6 +2188,7 @@
       vignetteInput,
       emblemFlashInput,
       panelOpacityInput,
+      animationDurationInput,
       emblemEffectSelect,
       emblemEntranceSelect,
     ].forEach((control) => {

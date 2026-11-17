@@ -133,7 +133,7 @@ node tests\edge-smoke.js
 - Live Photo 导出固定为 3.0 秒、30 fps，封面使用 HEIC。iPhone 的 Live Photo 底层就是配对照片与 MOV，不存在另一种通用单文件格式；页面会保留配对 ZIP 备份，并提供“用 Mac 照片打开”按钮。
 - 按钮会把 HEIC 与 MOV 解压到 `outputs/` 下的独立目录，再由 macOS `open -a Photos` 同时交给 Apple“照片”。这个流程不需要给网页、Python 或导入器照片库权限；导入后，如 Mac 与 iPhone 均开启 iCloud 照片，会自动同步。
 - Live Photo 使用 macOS Apple 媒体框架写入相同的 `com.apple.quicktime.content.identifier`、HEIC MakerApple 配对字段及 `com.apple.quicktime.still-image-time` 时间轨道，因此需要 macOS 本地运行。
-- 图片生成的动画视频固定为精确 3.0 秒（30 fps、90 帧），与标准 Live Photo 的三秒动态时长一致。
+- MP4 和 Live Photo 固定为 3.0 秒（30 fps、90 帧）。动画默认在 2.0 秒完成，可调节为 0.5–3.0 秒，之后保持完成画面；视频素材不足 3 秒时保持最后一帧。
 - 动画视频会把背景媒体逐帧绘制进任务动画时间线，导出结果不包含源视频音轨。
 - Chrome 只负责上传、编辑、预览和逐帧渲染文字、徽记与粒子；本地 Python 服务把 JPEG 帧流交给 FFmpeg `libx265` 软件编码器。
 - 选择「原图比例」时，视频最高保留 8256×5504；选择「8K」时输出 7680×4320。
